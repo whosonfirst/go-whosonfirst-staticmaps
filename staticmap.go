@@ -112,7 +112,8 @@ func (s *StaticMap) Render() (image.Image, error) {
 
 	} else {
 
-		err := errors.New("Sorry, only Polygons and MultiPolygons are supported right now")
+		msg := fmt.Sprintf("Sorry, only Polygons and MultiPolygons are supported right now (this is a %s)", geom_type)
+		err := errors.New(msg)
 		return nil, err
 	}
 
@@ -185,7 +186,8 @@ func (s *StaticMap) Fetch() ([]byte, error) {
 func (s *StaticMap) poly2area(poly gjson.Result) (*sm.Area, error) {
 
 	args := []string{
-		"color:0xFFFFFF",
+		// "color:0xFFFFFF",
+		"color:0x000000",
 		"fill:0xFF00967F",
 		"weight:2",
 	}

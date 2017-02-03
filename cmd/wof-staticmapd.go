@@ -18,6 +18,8 @@ func main() {
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
 
+	var cache = flag.Bool("cache", false, "...")
+
 	handler := func(rsp http.ResponseWriter, req *http.Request) {
 
 		query := req.URL.Query()
@@ -57,6 +59,10 @@ func main() {
 		if err != nil {
 			http.Error(rsp, err.Error(), http.StatusInternalServerError)
 			return
+		}
+
+		if *cache {
+			// cache image here...
 		}
 
 		rsp.Header().Set("Content-Type", "image/png")
