@@ -1,7 +1,7 @@
 package main
 
 import (
-	_ "flag"
+	"flag"
 	"github.com/fogleman/gg"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
 	"log"
@@ -9,8 +9,15 @@ import (
 
 func main() {
 
-	wofid := int64(85668077)
-	sm, err := staticmap.NewStaticMap(wofid)
+	var wofid = flag.Int64("id", 0, "...")
+
+	flag.Parse()
+
+	if *wofid == 0 {
+		log.Fatal("Missing WOF ID")
+	}
+
+	sm, err := staticmap.NewStaticMap(*wofid)
 
 	if err != nil {
 		log.Fatal(err)
