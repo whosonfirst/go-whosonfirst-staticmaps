@@ -17,6 +17,7 @@ build:	fmt bin
 
 deps:   rmdeps
 	@GOPATH=$(GOPATH) go get -u "github.com/flopp/go-staticmaps"
+	@GOPATH=$(GOPATH) go get -u  "github.com/facebookgo/grace/gracehttp"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-uri"
 	@GOPATH=$(GOPATH) go get -u "github.com/aws/aws-sdk-go"
 	@GOPATH=$(GOPATH) go get -u "github.com/tidwall/gjson"
@@ -29,6 +30,7 @@ vendor-deps: deps
 
 bin: 	self
 	@GOPATH=$(GOPATH) go build -o bin/wof-render-staticmap cmd/wof-render-staticmap.go
+	@GOPATH=$(GOPATH) go build -o bin/wof-staticmapd cmd/wof-staticmapd.go
 
 fmt:
 	go fmt cmd/*.go

@@ -88,10 +88,22 @@ func (s *StaticMap) Render() (image.Image, error) {
 
 				areas = append(areas, area)
 			}
-		}
+		} else {
 
-		if geom_type == "MultiPolygon" {
+			for _, multi := range coords.Array() {
 
+				for _, poly := range multi.Array() {
+
+					area, err := s.poly2area(poly)
+
+					if err != nil {
+						return nil, err
+					}
+
+					areas = append(areas, area)
+				}
+
+			}
 		}
 
 		for _, a := range areas {
@@ -104,19 +116,40 @@ func (s *StaticMap) Render() (image.Image, error) {
 		return nil, err
 	}
 
-	geom_lat := gjson.GetBytes(b, "properties.geom:latitude").Float()
-	geom_lon := gjson.GetBytes(b, "properties.geom:longitude").Float()
+	label_lat := gjson.GetBytes(b, "properties.lbl:latitude")
+	label_lon := gjson.GetBytes(b, "properties.lbl:longitude")
 
-	geom_marker := fmt.Sprintf("color:red|%0.6f,%0.6f", geom_lat, geom_lon)
+	if label_lat.Exists() && label_lon.Exists() {
 
-	markers, err := sm.ParseMarkerString(geom_marker)
+		label_marker := fmt.Sprintf("color:white|%0.6f,%0.6f", label_lat.Float(), label_lon.Float())
 
-	if err != nil {
-		return nil, err
-	}
+		markers, err := sm.ParseMarkerString(label_marker)
 
-	for _, marker := range markers {
-		ctx.AddMarker(marker)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, marker := range markers {
+			ctx.AddMarker(marker)
+		}
+
+	} else {
+
+		geom_lat := gjson.GetBytes(b, "properties.geom:latitude").Float()
+		geom_lon := gjson.GetBytes(b, "properties.geom:longitude").Float()
+
+		geom_marker := fmt.Sprintf("color:white|%0.6f,%0.6f", geom_lat, geom_lon)
+
+		markers, err := sm.ParseMarkerString(geom_marker)
+
+		if err != nil {
+			return nil, err
+		}
+
+		for _, marker := range markers {
+			ctx.AddMarker(marker)
+		}
+
 	}
 
 	return ctx.Render()
@@ -152,8 +185,8 @@ func (s *StaticMap) Fetch() ([]byte, error) {
 func (s *StaticMap) poly2area(poly gjson.Result) (*sm.Area, error) {
 
 	args := []string{
-		"color:0x00FF00",
-		"fill:0x00FF007F",
+		"color:0xFFFFFF",
+		"fill:0xFF00967F",
 		"weight:2",
 	}
 
