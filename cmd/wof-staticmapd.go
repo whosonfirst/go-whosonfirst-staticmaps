@@ -6,10 +6,12 @@ import (
 	"fmt"
 	"github.com/facebookgo/grace/gracehttp"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
+	"github.com/whosonfirst/go-whosonfirst-uri"
 	"image/png"
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strconv"
 )
 
@@ -18,7 +20,12 @@ func main() {
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
 
+	var height = flag.Int("image-height", 480, "...")
+	var width = flag.Int("image-width", 640, "...")
+
 	var cache = flag.Bool("cache", false, "...")
+
+	flag.Parse()
 
 	handler := func(rsp http.ResponseWriter, req *http.Request) {
 
@@ -45,6 +52,9 @@ func main() {
 			return
 		}
 
+		sm.Width = *width
+		sm.Height = *height
+
 		im, err := sm.Render()
 
 		if err != nil {
@@ -62,7 +72,12 @@ func main() {
 		}
 
 		if *cache {
-			// cache image here...
+
+			root, _ := uri.Id2Path(wofid)
+			fname := fmt.Sprintf("%d-%d-%d.png", wofid, *width, *height)
+
+			rel_path := filepath.Join(root, fname)
+			log.Println(rel_path)
 		}
 
 		rsp.Header().Set("Content-Type", "image/png")
