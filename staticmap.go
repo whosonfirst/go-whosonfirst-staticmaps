@@ -1,9 +1,10 @@
 package staticmap
 
 import (
-	"errors"
+	_ "errors"
 	"fmt"
 	"github.com/flopp/go-staticmaps"
+	"github.com/golang/geo/s2"
 	"github.com/tidwall/gjson"
 	"github.com/whosonfirst/go-whosonfirst-uri"
 	"image"
@@ -54,6 +55,7 @@ func (s *StaticMap) Render() (image.Image, error) {
 	ctx.SetSize(s.Width, s.Height)
 
 	geom_type := gjson.GetBytes(b, "geometry.type").String()
+	coords := gjson.GetBytes(b, "geometry.coordinates")
 
 	if geom_type == "Polygon" || geom_type == "MultiPolygon" {
 
@@ -71,8 +73,6 @@ func (s *StaticMap) Render() (image.Image, error) {
 		}
 
 		ctx.SetBoundingBox(*s2_bbox)
-
-		coords := gjson.GetBytes(b, "geometry.coordinates")
 
 		areas := make([]*sm.Area, 0)
 
@@ -112,9 +112,12 @@ func (s *StaticMap) Render() (image.Image, error) {
 
 	} else {
 
-		msg := fmt.Sprintf("Sorry, only Polygons and MultiPolygons are supported right now (this is a %s)", geom_type)
-		err := errors.New(msg)
-		return nil, err
+		latlon := coords.Array()
+
+		lat := latlon[1].Float()
+		lon := latlon[0].Float()
+
+		ctx.SetCenter(s2.LatLngFromDegrees(lat, lon))
 	}
 
 	label_lat := gjson.GetBytes(b, "properties.lbl:latitude")
