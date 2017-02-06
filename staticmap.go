@@ -17,6 +17,7 @@ import (
 type StaticMap struct {
 	DataRoot     string
 	TileProvider string
+	Fill         string
 	Width        int
 	Height       int
 	wofid        int64
@@ -29,6 +30,7 @@ func NewStaticMap(wofid int64) (*StaticMap, error) {
 		TileProvider: "stamen-toner",
 		Width:        800,
 		Height:       640,
+		Fill:         "0xFF00967F",
 		wofid:        wofid,
 	}
 
@@ -120,40 +122,43 @@ func (s *StaticMap) Render() (image.Image, error) {
 		ctx.SetCenter(s2.LatLngFromDegrees(lat, lon))
 	}
 
-	label_lat := gjson.GetBytes(b, "properties.lbl:latitude")
-	label_lon := gjson.GetBytes(b, "properties.lbl:longitude")
+	if geom_type == "Point" {
 
-	if label_lat.Exists() && label_lon.Exists() {
+		label_lat := gjson.GetBytes(b, "properties.lbl:latitude")
+		label_lon := gjson.GetBytes(b, "properties.lbl:longitude")
 
-		label_marker := fmt.Sprintf("color:white|%0.6f,%0.6f", label_lat.Float(), label_lon.Float())
+		if label_lat.Exists() && label_lon.Exists() {
 
-		markers, err := sm.ParseMarkerString(label_marker)
+			label_marker := fmt.Sprintf("color:%s|%0.6f,%0.6f", s.Fill, label_lat.Float(), label_lon.Float())
 
-		if err != nil {
-			return nil, err
+			markers, err := sm.ParseMarkerString(label_marker)
+
+			if err != nil {
+				return nil, err
+			}
+
+			for _, marker := range markers {
+				ctx.AddMarker(marker)
+			}
+
+		} else {
+
+			geom_lat := gjson.GetBytes(b, "properties.geom:latitude").Float()
+			geom_lon := gjson.GetBytes(b, "properties.geom:longitude").Float()
+
+			geom_marker := fmt.Sprintf("color:%s|%0.6f,%0.6f", s.Fill, geom_lat, geom_lon)
+
+			markers, err := sm.ParseMarkerString(geom_marker)
+
+			if err != nil {
+				return nil, err
+			}
+
+			for _, marker := range markers {
+				ctx.AddMarker(marker)
+			}
+
 		}
-
-		for _, marker := range markers {
-			ctx.AddMarker(marker)
-		}
-
-	} else {
-
-		geom_lat := gjson.GetBytes(b, "properties.geom:latitude").Float()
-		geom_lon := gjson.GetBytes(b, "properties.geom:longitude").Float()
-
-		geom_marker := fmt.Sprintf("color:white|%0.6f,%0.6f", geom_lat, geom_lon)
-
-		markers, err := sm.ParseMarkerString(geom_marker)
-
-		if err != nil {
-			return nil, err
-		}
-
-		for _, marker := range markers {
-			ctx.AddMarker(marker)
-		}
-
 	}
 
 	return ctx.Render()
@@ -188,10 +193,11 @@ func (s *StaticMap) Fetch() ([]byte, error) {
 
 func (s *StaticMap) poly2area(poly gjson.Result) (*sm.Area, error) {
 
+	fill := fmt.Sprintf("fill:%s", s.Fill)
+
 	args := []string{
-		// "color:0xFFFFFF",
 		"color:0x000000",
-		"fill:0xFF00967F",
+		fill,
 		"weight:2",
 	}
 
