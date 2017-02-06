@@ -2,13 +2,13 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"flag"
-	"errors"		
 	"fmt"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/s3"	
+	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/facebookgo/grace/gracehttp"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
 	"github.com/whosonfirst/go-whosonfirst-uri"
@@ -16,9 +16,10 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"os/user"
 	"path/filepath"
-	"strings"		
 	"strconv"
+	"strings"
 )
 
 /* oh god put me in a library */
@@ -128,8 +129,20 @@ func (conn *S3Connection) prepareKey(key string) string {
 
 func main() {
 
+	whoami, err := user.Current()
+	default_creds := ""
+
+	if err == nil {
+		default_creds = fmt.Sprintf("shared:%s/.aws/credentials:default", whoami.HomeDir)
+	}
+
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
+
+	var s3_credentials = flag.String("s3-credentials", default_creds, "...")
+	var s3_bucket = flag.String("s3-bucket", "whosonfirst.mapzen.com", "...")
+	var s3_prefix = flag.String("s3-prefix", "static", "...")
+	var s3_region = flag.String("s3-region", "us-east-1", "...")
 
 	var height = flag.Int("image-height", 480, "...")
 	var width = flag.Int("image-width", 640, "...")
@@ -197,11 +210,27 @@ func main() {
 
 		if *cache {
 
-			root, _ := uri.Id2Path(wofid)
-			fname := fmt.Sprintf("%d-%d-%d.png", wofid, *width, *height)
+			go func() {
 
-			rel_path := filepath.Join(root, fname)
-			log.Println(rel_path)
+				root, err := uri.Id2Path(wofid)
+
+				if err != nil {
+					log.Println(err)
+					return
+				}
+
+				fname := fmt.Sprintf("%d-%d-%d.png", wofid, *width, *height)
+
+				rel_path := filepath.Join(root, fname)
+
+				err = conn.Put(rel_path, buffer.Bytes(), "image/png")
+
+				if err != nil {
+					msg := fmt.Sprintf("failed to PUT %s because %s\n", rel_path, err)
+					log.Println(msg)
+					return
+				}
+			}()
 		}
 
 		rsp.Header().Set("Content-Type", "image/png")
@@ -215,7 +244,7 @@ func main() {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler)
 
-	err := gracehttp.Serve(&http.Server{Addr: endpoint, Handler: mux})
+	err = gracehttp.Serve(&http.Server{Addr: endpoint, Handler: mux})
 
 	if err != nil {
 		log.Fatal(err)
