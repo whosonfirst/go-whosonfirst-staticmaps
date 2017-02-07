@@ -152,17 +152,22 @@ func main() {
 
 	flag.Parse()
 
-	cfg := S3Config{
-		Bucket:      *s3_bucket,
-		Prefix:      *s3_prefix,
-		Region:      *s3_region,
-		Credentials: *s3_credentials,
-	}
+	var conn *S3Connection
 
-	conn, err := NewS3Connection(cfg)
+	if *cache_s3 {
 
-	if err != nil {
-		log.Fatal(err)
+		cfg := S3Config{
+			Bucket:      *s3_bucket,
+			Prefix:      *s3_prefix,
+			Region:      *s3_region,
+			Credentials: *s3_credentials,
+		}
+
+		conn, err = NewS3Connection(cfg)
+
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	handler := func(rsp http.ResponseWriter, req *http.Request) {
@@ -182,6 +187,8 @@ func main() {
 			http.Error(rsp, "Invalid ID parameter", http.StatusBadRequest)
 			return
 		}
+
+		// log.Println("rendering", wofid)
 
 		sm, err := staticmap.NewStaticMap(int64(wofid))
 
