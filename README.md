@@ -36,16 +36,29 @@ func main() {
 	sm, _ := staticmap.NewStaticMap(wofid)
 	im, _ := sm.Render()
 
-	file, _ := os.Open(png)
-	defer file.Close()
+	fh, _ := os.Create(png)
+	defer fh.Close()
 
-	png.Decode(file)
+	png.Encode(file, im)
 }
 ```
 
 ## Tools
 
-### wof-render-staticmap
+### wof-staticmap
+
+```
+./bin/wof-staticmap -h
+Usage of ./bin/wof-staticmap:
+  -id int
+    	A valid Who's On First to render.
+  -image-height int
+    	... (default 480)
+  -image-width int
+    	... (default 640)
+  -save-as string
+    	Save the map to this path. If empty then the map will saved as {WOFID}.png.
+```
 
 ### wof-staticmapd
 

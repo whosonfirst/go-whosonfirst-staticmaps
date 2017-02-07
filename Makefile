@@ -29,7 +29,7 @@ vendor-deps: deps
 	find vendor -name '.git' -print -type d -exec rm -rf {} +
 
 bin: 	self
-	@GOPATH=$(GOPATH) go build -o bin/wof-render-staticmap cmd/wof-render-staticmap.go
+	@GOPATH=$(GOPATH) go build -o bin/wof-staticmap cmd/wof-staticmap.go
 	@GOPATH=$(GOPATH) go build -o bin/wof-staticmapd cmd/wof-staticmapd.go
 
 fmt:

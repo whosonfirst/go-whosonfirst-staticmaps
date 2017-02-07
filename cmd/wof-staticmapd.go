@@ -139,15 +139,15 @@ func main() {
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
 
+	var cache_s3 = flag.Bool("cache-s3", false, "...")
+
 	var s3_credentials = flag.String("s3-credentials", default_creds, "...")
 	var s3_bucket = flag.String("s3-bucket", "whosonfirst.mapzen.com", "...")
 	var s3_prefix = flag.String("s3-prefix", "static", "...")
 	var s3_region = flag.String("s3-region", "us-east-1", "...")
 
-	var height = flag.Int("image-height", 480, "...")
-	var width = flag.Int("image-width", 640, "...")
-
-	var cache = flag.Bool("cache", false, "...")
+	var height = flag.Int("image-height", 480, "The height in pixels for rendered maps.")
+	var width = flag.Int("image-width", 640, "The width in pixels for rendered maps.")
 
 	flag.Parse()
 
@@ -208,7 +208,7 @@ func main() {
 			return
 		}
 
-		if *cache {
+		if *cache_s3 {
 
 			go func() {
 
