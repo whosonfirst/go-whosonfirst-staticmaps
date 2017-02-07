@@ -50,6 +50,8 @@ func main() {
 ```
 ./bin/wof-staticmap -h
 Usage of ./bin/wof-staticmap:
+  -data-root string
+    	Where to look for Who's On First source data. (default "https://whosonfirst.mapzen.com/data")
   -id int
     	A valid Who's On First to render.
   -image-height int
@@ -61,6 +63,8 @@ Usage of ./bin/wof-staticmap:
 ```
 
 ### wof-staticmapd
+
+_Please write me_
 
 ## See also
 

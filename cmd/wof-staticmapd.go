@@ -148,6 +148,7 @@ func main() {
 
 	var height = flag.Int("image-height", 480, "The height in pixels for rendered maps.")
 	var width = flag.Int("image-width", 640, "The width in pixels for rendered maps.")
+	var root = flag.String("data-root", "https://whosonfirst.mapzen.com/data", "Where to look for Who's On First source data.")
 
 	flag.Parse()
 
@@ -189,6 +190,7 @@ func main() {
 			return
 		}
 
+		sm.DataRoot = *root
 		sm.Width = *width
 		sm.Height = *height
 
