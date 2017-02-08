@@ -28,7 +28,20 @@ import (
 // These constants are not part of the specifications, but are limitations used
 // by this implementation.
 const (
-	maxCmapSegments     = 1024
+	// This value is arbitrary, but defends against parsing malicious font
+	// files causing excessive memory allocations. For reference, Adobe's
+	// SourceHanSansSC-Regular.otf has 65535 glyphs and:
+	//	- its format-4  cmap table has  1581 segments.
+	//	- its format-12 cmap table has 16498 segments.
+	//
+	// TODO: eliminate this constraint? If the cmap table is very large, load
+	// some or all of it lazily (at the time Font.GlyphIndex is called) instead
+	// of all of it eagerly (at the time Font.initialize is called), while
+	// keeping an upper bound on the memory used? This will make the code in
+	// cmap.go more complicated, considering that all of the Font methods are
+	// safe to call concurrently, as long as each call has a different *Buffer.
+	maxCmapSegments = 20000
+
 	maxGlyphDataLength  = 64 * 1024
 	maxHintBits         = 256
 	maxNumTables        = 256
@@ -60,7 +73,6 @@ var (
 
 	errUnsupportedCFFVersion           = errors.New("sfnt: unsupported CFF version")
 	errUnsupportedCmapEncodings        = errors.New("sfnt: unsupported cmap encodings")
-	errUnsupportedCmapFormat           = errors.New("sfnt: unsupported cmap format")
 	errUnsupportedCompoundGlyph        = errors.New("sfnt: unsupported compound glyph")
 	errUnsupportedGlyphDataLength      = errors.New("sfnt: unsupported glyph data length")
 	errUnsupportedRealNumberEncoding   = errors.New("sfnt: unsupported real number encoding")

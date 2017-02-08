@@ -18,8 +18,8 @@ build:	fmt bin
 deps:   rmdeps
 	@GOPATH=$(GOPATH) go get -u "github.com/flopp/go-staticmaps"
 	@GOPATH=$(GOPATH) go get -u  "github.com/facebookgo/grace/gracehttp"
+	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-storagemaster"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-uri"
-	@GOPATH=$(GOPATH) go get -u "github.com/aws/aws-sdk-go"
 	@GOPATH=$(GOPATH) go get -u "github.com/tidwall/gjson"
 
 vendor-deps: deps
