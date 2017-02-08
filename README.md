@@ -103,7 +103,7 @@ Usage of ./bin/wof-staticmapd:
 
 ```
 ./bin/wof-staticmapd 
-curl http://127.0.0.1:8080/?id=1108794405&size=sq
+curl http://127.0.0.1:8080/?id=1108794405
 ```
 
 ![](images/1108794405.png)
