@@ -97,6 +97,17 @@ Usage of ./bin/wof-staticmapd:
     	The default width in pixels for rendered maps. (default 640)
 ```
 
+## Examples
+
+### Custom sizes
+
+![](images/1108794405-sq.png)
+
+```
+./bin/wof-staticmapd -s3-bucket whosonfirst.dev.mapzen.com -size sq=100x100
+curl http://127.0.0.1:8080/?id=1108794405&size=sq
+```
+
 ## See also
 
 * github.com/flopp/go-staticmaps
