@@ -99,10 +99,19 @@ Usage of ./bin/wof-staticmapd:
 
 ## Examples
 
+### Default sizes
+
+```
+./bin/wof-staticmapd 
+curl http://127.0.0.1:8080/?id=1108794405&size=sq
+```
+
+![](images/1108794405.png)
+
 ### Custom sizes
 
 ```
-./bin/wof-staticmapd -s3-bucket whosonfirst.dev.mapzen.com -size sq=100x100
+./bin/wof-staticmapd -size sq=100x100
 curl http://127.0.0.1:8080/?id=1108794405&size=sq
 ```
 
