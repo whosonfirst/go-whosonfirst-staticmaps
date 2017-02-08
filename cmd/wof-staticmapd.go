@@ -87,11 +87,19 @@ func main() {
 	var s3_prefix = flag.String("s3-prefix", "static", "...")
 	var s3_region = flag.String("s3-region", "us-east-1", "...")
 
-	var height = flag.Int("image-height", 480, "The height in pixels for rendered maps.")
-	var width = flag.Int("image-width", 640, "The width in pixels for rendered maps.")
+	var height = flag.Int("height", 480, "The default height in pixels for rendered maps.")
+	var width = flag.Int("width", 640, "The default width in pixels for rendered maps.")
 	var root = flag.String("data-root", "https://whosonfirst.mapzen.com/data", "Where to look for Who's On First source data.")
 
 	flag.Parse()
+
+	sz_map, err := sizes.ToMap()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sz_map["default"] = CustomSize{Width: *width, Height: *height}
 
 	var storage storagemaster.Provider
 
@@ -125,11 +133,22 @@ func main() {
 		wofid, err := strconv.Atoi(str_wofid)
 
 		if err != nil {
-			http.Error(rsp, "Invalid ID parameter", http.StatusBadRequest)
+			http.Error(rsp, "Invalid 'id' parameter", http.StatusBadRequest)
 			return
 		}
 
-		// log.Println("rendering", wofid)
+		sz_label := query.Get("size")
+
+		if sz_label == "" {
+			sz_label = "default"
+		}
+
+		sz, ok := sz_map[sz_label]
+
+		if !ok {
+			http.Error(rsp, "Invalid 'size' parameter", http.StatusBadRequest)
+			return
+		}
 
 		sm, err := staticmap.NewStaticMap(int64(wofid))
 
@@ -139,8 +158,8 @@ func main() {
 		}
 
 		sm.DataRoot = *root
-		sm.Width = *width
-		sm.Height = *height
+		sm.Width = sz.Width
+		sm.Height = sz.Height
 
 		im, err := sm.Render()
 
@@ -169,7 +188,11 @@ func main() {
 					return
 				}
 
-				fname := fmt.Sprintf("%d-%d-%d.png", wofid, *width, *height)
+				fname := fmt.Sprintf("%d.png", wofid)
+
+				if sz_label != "default" {
+					fname = fmt.Sprintf("%d-%s.png", wofid, sz_label)
+				}
 
 				rel_path := filepath.Join(root, fname)
 
