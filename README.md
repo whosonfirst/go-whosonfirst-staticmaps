@@ -64,7 +64,38 @@ Usage of ./bin/wof-staticmap:
 
 ### wof-staticmapd
 
-_Please write me_
+_work in progress..._
+
+```
+./bin/wof-staticmapd -h
+Usage of ./bin/wof-staticmapd:
+  -cache
+    	...
+  -cache-provider string
+    	... (default "s3")
+  -data-root string
+    	Where to look for Who's On First source data. (default "https://whosonfirst.mapzen.com/data")
+  -gracehttp.log
+    	Enable logging. (default true)
+  -height int
+    	The default height in pixels for rendered maps. (default 480)
+  -host string
+    	The hostname to listen for requests on (default "localhost")
+  -port int
+    	The port number to listen for requests on (default 8080)
+  -s3-bucket string
+    	... (default "whosonfirst.mapzen.com")
+  -s3-credentials string
+    	... (default "shared:/Users/asc/.aws/credentials:default")
+  -s3-prefix string
+    	... (default "static")
+  -s3-region string
+    	... (default "us-east-1")
+  -size value
+    	Zero or more custom {LABEL}={WIDTH}x{HEIGHT} parameters.
+  -width int
+    	The default width in pixels for rendered maps. (default 640)
+```
 
 ## See also
 

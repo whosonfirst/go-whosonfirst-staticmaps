@@ -80,7 +80,8 @@ func main() {
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
 
-	var cache_s3 = flag.Bool("cache-s3", false, "...")
+	var cache = flag.Bool("cache", false, "...")
+	var cache_provider = flag.String("cache-provider", "s3", "...")
 
 	var s3_credentials = flag.String("s3-credentials", default_creds, "...")
 	var s3_bucket = flag.String("s3-bucket", "whosonfirst.mapzen.com", "...")
@@ -103,19 +104,24 @@ func main() {
 
 	var storage storagemaster.Provider
 
-	if *cache_s3 {
+	if *cache {
 
-		cfg := provider.S3Config{
-			Bucket:      *s3_bucket,
-			Prefix:      *s3_prefix,
-			Region:      *s3_region,
-			Credentials: *s3_credentials,
-		}
+		if *cache_provider == "s3" {
 
-		storage, err = provider.NewS3Provider(cfg)
+			cfg := provider.S3Config{
+				Bucket:      *s3_bucket,
+				Prefix:      *s3_prefix,
+				Region:      *s3_region,
+				Credentials: *s3_credentials,
+			}
 
-		if err != nil {
-			log.Fatal(err)
+			storage, err = provider.NewS3Provider(cfg)
+
+			if err != nil {
+				log.Fatal(err)
+			}
+		} else {
+			log.Fatal("Invalid or unknown cache provider")
 		}
 	}
 
@@ -177,7 +183,7 @@ func main() {
 			return
 		}
 
-		if *cache_s3 {
+		if *cache {
 
 			go func() {
 
