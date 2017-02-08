@@ -119,4 +119,4 @@ curl http://127.0.0.1:8080/?id=1108794405&size=sq
 
 ## See also
 
-* github.com/flopp/go-staticmaps
+* https://github.com/flopp/go-staticmaps
