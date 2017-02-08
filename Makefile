@@ -9,6 +9,7 @@ self:   prep rmdeps
 	if test ! -d src/github.com/whosonfirst/go-whosonfirst-staticmap; then mkdir -p src/github.com/whosonfirst/go-whosonfirst-staticmap; fi
 	cp staticmap.go src/github.com/whosonfirst/go-whosonfirst-staticmap/
 	cp -r vendor/src/* src/
+	mv src/github.com/whosonfirst/go-storagemaster/vendor/src/github.com/aws src/github.com/
 
 rmdeps:
 	if test -d src; then rm -rf src; fi 

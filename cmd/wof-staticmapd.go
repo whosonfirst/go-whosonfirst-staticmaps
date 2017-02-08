@@ -2,12 +2,11 @@ package main
 
 import (
 	"bytes"
-	"errors"
 	"flag"
 	"fmt"
 	"github.com/facebookgo/grace/gracehttp"
 	"github.com/whosonfirst/go-storagemaster"
-	"github.com/whosonfirst/go-storagemaster/provider"	
+	"github.com/whosonfirst/go-storagemaster/provider"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
 	"github.com/whosonfirst/go-whosonfirst-uri"
 	"image/png"
@@ -17,7 +16,6 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
-	"strings"
 )
 
 func main() {
@@ -45,7 +43,7 @@ func main() {
 
 	flag.Parse()
 
-	var sm storagemaster.Provider
+	var storage storagemaster.Provider
 
 	if *cache_s3 {
 
@@ -56,7 +54,7 @@ func main() {
 			Credentials: *s3_credentials,
 		}
 
-		sm, err = provider.NewS3Provider(cfg)
+		storage, err = provider.NewS3Provider(cfg)
 
 		if err != nil {
 			log.Fatal(err)
@@ -125,7 +123,7 @@ func main() {
 
 				rel_path := filepath.Join(root, fname)
 
-				extras, err := storagemaster.NewStorageMasterExtras()
+				extras, err := storagemaster.NewStoragemasterExtras()
 
 				if err != nil {
 					msg := fmt.Sprintf("failed to PUT %s because %s\n", rel_path, err)
@@ -135,8 +133,8 @@ func main() {
 
 				extras.Set("acl", "public-read")
 				extras.Set("content-type", "image/png")
-				
-				err = sm.Put(rel_path, buffer.Bytes(), extras)
+
+				err = storage.Put(rel_path, buffer.Bytes(), extras)
 
 				if err != nil {
 					msg := fmt.Sprintf("failed to PUT %s because %s\n", rel_path, err)
