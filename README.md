@@ -101,12 +101,12 @@ Usage of ./bin/wof-staticmapd:
 
 ### Custom sizes
 
-![](images/1108794405-sq.png)
-
 ```
 ./bin/wof-staticmapd -s3-bucket whosonfirst.dev.mapzen.com -size sq=100x100
 curl http://127.0.0.1:8080/?id=1108794405&size=sq
 ```
+
+![](images/1108794405-sq.png)
 
 ## See also
 
