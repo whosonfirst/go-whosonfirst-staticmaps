@@ -16,7 +16,53 @@ import (
 	"os/user"
 	"path/filepath"
 	"strconv"
+	"strings"
 )
+
+type CustomSize struct {
+	Width  int
+	Height int
+}
+
+type NamedSizes []string
+
+func (p *NamedSizes) String() string {
+	return strings.Join(*p, "\n")
+}
+
+func (p *NamedSizes) Set(value string) error {
+	*p = append(*p, value)
+	return nil
+}
+
+func (p *NamedSizes) ToMap() (map[string]CustomSize, error) {
+
+	m := make(map[string]CustomSize)
+
+	for _, str_pair := range *p {
+
+		pair := strings.Split(str_pair, "=")
+
+		name := pair[0]
+		dims := strings.Split(pair[1], "x")
+
+		w, err := strconv.Atoi(dims[0])
+
+		if err != nil {
+			return nil, err
+		}
+
+		h, err := strconv.Atoi(dims[1])
+
+		if err != nil {
+			return nil, err
+		}
+
+		m[name] = CustomSize{Width: w, Height: h}
+	}
+
+	return m, nil
+}
 
 func main() {
 
@@ -26,6 +72,10 @@ func main() {
 	if err == nil {
 		default_creds = fmt.Sprintf("shared:%s/.aws/credentials:default", whoami.HomeDir)
 	}
+
+	var sizes NamedSizes
+
+	flag.Var(&sizes, "size", "Zero or more custom {LABEL}={WIDTH}x{HEIGHT} parameters.")
 
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
