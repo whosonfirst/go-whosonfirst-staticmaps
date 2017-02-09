@@ -123,7 +123,7 @@ curl http://127.0.0.1:8080/?id=1108794405&size=sq
 
 ```
 ./bin/wof-staticmapd -cache -cache-provider s3 -s3-prefix static -size example=300x300
-curl http://127.0.0.1:8080/?id=85922227&sz=example
+curl http://127.0.0.1:8080/?id=85922227&size=example
 curl http://whosonfirst.mapzen.com.s3.amazonaws.com/static/859/222/27/85922227.png
 ```
 
