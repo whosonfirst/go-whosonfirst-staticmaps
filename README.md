@@ -125,6 +125,12 @@ curl http://whosonfirst.mapzen.com.s3.amazonaws.com/static/859/222/27/85922227.p
 
 ![](images/85922227-example.png)
 
+## Caveats
+
+### Interior rings
+
+This package does not do the right thing when rendering interior rings. Not even a little bit...
+
 ## See also
 
 * https://github.com/flopp/go-staticmaps
