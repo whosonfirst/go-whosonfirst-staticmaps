@@ -80,13 +80,13 @@ func main() {
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
 
-	var cache = flag.Bool("cache", false, "...")
-	var cache_provider = flag.String("cache-provider", "s3", "...")
+	var cache = flag.Bool("cache", false, "Cache rendered maps")
+	var cache_provider = flag.String("cache-provider", "s3", "A valid cache provider. Valid options are: s3")
 
-	var s3_credentials = flag.String("s3-credentials", default_creds, "...")
-	var s3_bucket = flag.String("s3-bucket", "whosonfirst.mapzen.com", "...")
-	var s3_prefix = flag.String("s3-prefix", "static", "...")
-	var s3_region = flag.String("s3-region", "us-east-1", "...")
+	var s3_credentials = flag.String("s3-credentials", default_creds, "A string descriptor for your AWS credentials. Valid options are: env:;shared:PATH_TO_SHARED_CREDENTIALS_FILE:SHARED_CREDENTIALS_PROFILE; iam:")
+	var s3_bucket = flag.String("s3-bucket", "whosonfirst.mapzen.com", "A valid S3 bucket where cached files are stored.")
+	var s3_prefix = flag.String("s3-prefix", "static", "An optional subdirectory (prefix) where cached files are stored in S3.")
+	var s3_region = flag.String("s3-region", "us-east-1", "A valid AWS S3 region")
 
 	var height = flag.Int("height", 480, "The default height in pixels for rendered maps.")
 	var width = flag.Int("width", 640, "The default width in pixels for rendered maps.")

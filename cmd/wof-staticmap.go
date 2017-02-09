@@ -12,8 +12,8 @@ import (
 func main() {
 
 	var wofid = flag.Int64("id", 0, "A valid Who's On First to render.")
-	var height = flag.Int("image-height", 480, "The height in pixels of your new map.")
-	var width = flag.Int("image-width", 640, "The width in pixels of your new map.")
+	var height = flag.Int("height", 480, "The height in pixels of your new map.")
+	var width = flag.Int("width", 640, "The width in pixels of your new map.")
 	var root = flag.String("data-root", "https://whosonfirst.mapzen.com/data", "Where to look for Who's On First source data.")
 	var saveas = flag.String("save-as", "", "Save the map to this path. If empty then the map will saved as {WOFID}.png.")
 

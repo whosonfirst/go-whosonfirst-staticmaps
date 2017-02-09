@@ -18,7 +18,7 @@ All of this package's dependencies are bundled with the code in the `vendor` dir
 
 ## Example
 
-_Note that all error handle has been removed for the sake of brevity._
+_Note that all error handling has been removed for the sake of brevity._
 
 ```
 import (
@@ -47,32 +47,34 @@ func main() {
 
 ### wof-staticmap
 
+Render a static map for a Who's On First ID from the command line.
+
 ```
 ./bin/wof-staticmap -h
 Usage of ./bin/wof-staticmap:
   -data-root string
     	Where to look for Who's On First source data. (default "https://whosonfirst.mapzen.com/data")
+  -height int
+    	The height in pixels of your new map. (default 480)
   -id int
     	A valid Who's On First to render.
-  -image-height int
-    	... (default 480)
-  -image-width int
-    	... (default 640)
   -save-as string
     	Save the map to this path. If empty then the map will saved as {WOFID}.png.
+  -width int
+    	The width in pixels of your new map. (default 640)
 ```
 
 ### wof-staticmapd
 
-_work in progress..._
+Render a static map for a Who's On First ID from an HTTP pony, optionally caching the result in S3.
 
 ```
 ./bin/wof-staticmapd -h
 Usage of ./bin/wof-staticmapd:
   -cache
-    	...
+    	Cache rendered maps
   -cache-provider string
-    	... (default "s3")
+    	A valid cache provider. Valid options are: s3 (default "s3")
   -data-root string
     	Where to look for Who's On First source data. (default "https://whosonfirst.mapzen.com/data")
   -gracehttp.log
@@ -84,13 +86,13 @@ Usage of ./bin/wof-staticmapd:
   -port int
     	The port number to listen for requests on (default 8080)
   -s3-bucket string
-    	... (default "whosonfirst.mapzen.com")
+    	A valid S3 bucket where cached files are stored. (default "whosonfirst.mapzen.com")
   -s3-credentials string
-    	... (default "shared:/Users/asc/.aws/credentials:default")
+    	A string descriptor for your AWS credentials. Valid options are: env:;shared:PATH_TO_SHARED_CREDENTIALS_FILE:SHARED_CREDENTIALS_PROFILE; iam: (default "shared:/Users/asc/.aws/credentials:default")
   -s3-prefix string
-    	... (default "static")
+    	An optional subdirectory (prefix) where cached files are stored in S3. (default "static")
   -s3-region string
-    	... (default "us-east-1")
+    	A valid AWS S3 region (default "us-east-1")
   -size value
     	Zero or more custom {LABEL}={WIDTH}x{HEIGHT} parameters.
   -width int
@@ -116,6 +118,16 @@ curl http://127.0.0.1:8080/?id=1108794405&size=sq
 ```
 
 ![](images/1108794405-sq.png)
+
+### Cached maps
+
+```
+./bin/wof-staticmapd -cache -cache-provider s3 -s3-prefix static -size example=300x300
+curl http://127.0.0.1:8080/?id=85922227&sz=example
+curl http://whosonfirst.mapzen.com.s3.amazonaws.com/static/859/222/27/85922227.png
+```
+
+![](images/85922227-example.png)
 
 ## See also
 
