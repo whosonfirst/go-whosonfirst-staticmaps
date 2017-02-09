@@ -2,10 +2,6 @@
 
 Go package for rendering static maps of Who's On First places.
 
-## Important
-
-Too soon. Move along.
-
 ## Install
 
 You will need to have both `Go` and the `make` programs installed on your computer. Assuming you do just type:
