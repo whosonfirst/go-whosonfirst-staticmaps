@@ -229,10 +229,17 @@ func main() {
 		rsp.Write(buffer.Bytes())
 	}
 
+	ping := func(rsp http.ResponseWriter, req *http.Request) {
+
+		rsp.Header().Set("Content-Type", "text/plain")
+		rsp.Write([]byte("PONG"))
+	}
+	
 	endpoint := fmt.Sprintf("%s:%d", *host, *port)
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handler)
+	mux.HandleFunc("/ping", ping)	
 
 	err = gracehttp.Serve(&http.Server{Addr: endpoint, Handler: mux})
 
