@@ -29,7 +29,7 @@ func main() {
 
 	var height = flag.Int("height", 480, "The height in pixels of your new map.")
 	var width = flag.Int("width", 640, "The width in pixels of your new map.")
-	var saveas = flag.String("save-as", "", "Save the map to this path. If empty then the map will saved as {WOFID}.png.")
+	var saveas = flag.String("save-as", "map.png", "Save the map to this path.")
 
 	var api_key = flag.String("nextzen-api-key", "", "A valid Nextzen API key. Required if -provider is 'rasterzen'")
 
@@ -83,11 +83,7 @@ func main() {
 	sm.Width = *width
 	sm.Height = *height
 
-	if *saveas == "" {
-		*saveas = fmt.Sprintf("%s.png", "debug") // FIX ME
-	}
-
-	fh, err := os.Create(*saveas)
+	fh, err := os.OpenFile(*saveas,  os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		log.Fatal(err)

@@ -60,7 +60,7 @@ Usage of ./bin/wof-staticmap:
   -provider string
     	A valid go-staticmaps provider. Valid providers are: carto-dark,carto-light,cycle,opentopomap,osm,rasterzen,stamen-terrain,stamen-toner,thunderforest-landscape,thunderforest-outdoors,thunderforest-transport (default "stamen-toner")
   -save-as string
-    	Save the map to this path. If empty then the map will saved as {WOFID}.png.
+    	Save the map to this path. (default "map.png")
   -width int
     	The width in pixels of your new map. (default 640)
 ```
