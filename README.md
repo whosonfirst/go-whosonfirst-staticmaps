@@ -65,7 +65,7 @@ Usage of ./bin/wof-staticmap:
     	The width in pixels of your new map. (default 640)
 ```
 
-For example:
+#### For example
 
 ```
 ./bin/wof-staticmap -height 1024 -width 2048 -provider rasterzen -nextzen-api-key {APIKEY} \
@@ -74,7 +74,7 @@ For example:
  85922441 1159157333 
 ```
 
-Will read data from both a local and remote (GitHub) data source and generate a map of [San Bruno](https://spelunker.whosonfirst.org/id/85922441/) (WOF ID `85922441`) and the [International Terminal Building](https://millsfield.sfomuseum.org/id/115/915/733/3) at SFO (WOF ID `1159157333`) using [rasterized Nextzen tiles](https://github.com/whosonfirst/go-rasterzen) for the basemap. Like this:
+Will read data from both a local and remote (GitHub) data source and generate a map of San Bruno, California (WOF ID [85922441](https://spelunker.whosonfirst.org/id/85922441/)) and the International Terminal Building at SFO (WOF ID [1159157333](https://millsfield.sfomuseum.org/id/115/915/733/3)) using [rasterized Nextzen tiles](https://github.com/whosonfirst/go-rasterzen) for the basemap. Like this:
 
 ![](images/20180830-itb-sanbruno-2.png)
 
