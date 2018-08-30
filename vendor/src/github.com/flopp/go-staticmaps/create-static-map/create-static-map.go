@@ -81,6 +81,15 @@ func handleBboxOption(ctx *sm.Context, parameter string) {
 	ctx.SetBoundingBox(*bbox)
 }
 
+func handleBackgroundOption(ctx *sm.Context, parameter string) {
+	color, err := sm.ParseColorString(parameter)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	ctx.SetBackground(color)
+}
+
 func handleMarkersOption(ctx *sm.Context, parameters []string) {
 	for _, s := range parameters {
 		markers, err := sm.ParseMarkerString(s)
@@ -116,27 +125,45 @@ func handleAreasOption(ctx *sm.Context, parameters []string) {
 			ctx.AddArea(area)
 		}
 	}
+}
 
+func handleCirclesOption(ctx *sm.Context, parameters []string) {
+	for _, s := range parameters {
+		circles, err := sm.ParseCircleString(s)
+		if err != nil {
+			log.Fatal(err)
+		} else {
+			for _, circle := range circles {
+				ctx.AddCircle(circle)
+			}
+		}
+	}
 }
 
 func main() {
 	var opts struct {
 		//		ClearCache bool     `long:"clear-cache" description:"Clears the tile cache"`
-		Width   int      `long:"width" description:"Width of the generated static map image" value-name:"PIXELS" default:"512"`
-		Height  int      `long:"height" description:"Height of the generated static map image" value-name:"PIXELS" default:"512"`
-		Output  string   `short:"o" long:"output" description:"Output file name" value-name:"FILENAME" default:"map.png"`
-		Type    string   `short:"t" long:"type" description:"Select the map type; list possible map types with '--type list'" value-name:"MAPTYPE"`
-		Center  string   `short:"c" long:"center" description:"Center coordinates (lat,lng) of the static map" value-name:"LATLNG"`
-		Zoom    int      `short:"z" long:"zoom" description:"Zoom factor" value-name:"ZOOMLEVEL"`
-		BBox    string   `short:"b" long:"bbox" description:"Bounding box of the static map" value-name:"nwLATLNG|seLATLNG"`
-		Markers []string `short:"m" long:"marker" description:"Add a marker to the static map" value-name:"MARKER"`
-		Paths   []string `short:"p" long:"path" description:"Add a path to the static map" value-name:"PATH"`
-		Areas   []string `short:"a" long:"area" description:"Add an area to the static map" value-name:"AREA"`
+		Width      int      `long:"width" description:"Width of the generated static map image" value-name:"PIXELS" default:"512"`
+		Height     int      `long:"height" description:"Height of the generated static map image" value-name:"PIXELS" default:"512"`
+		Output     string   `short:"o" long:"output" description:"Output file name" value-name:"FILENAME" default:"map.png"`
+		Type       string   `short:"t" long:"type" description:"Select the map type; list possible map types with '--type list'" value-name:"MAPTYPE"`
+		Center     string   `short:"c" long:"center" description:"Center coordinates (lat,lng) of the static map" value-name:"LATLNG"`
+		Zoom       int      `short:"z" long:"zoom" description:"Zoom factor" value-name:"ZOOMLEVEL"`
+		BBox       string   `short:"b" long:"bbox" description:"Bounding box of the static map" value-name:"nwLATLNG|seLATLNG"`
+		Background string   `long:"background" description:"Background color" value-name:"COLOR" default:"transparent"`
+		UserAgent  string   `short:"u" long:"useragent" description:"Overwrite the default HTTP user agent string" value-name:"USERAGENT"`
+		Markers    []string `short:"m" long:"marker" description:"Add a marker to the static map" value-name:"MARKER"`
+		Paths      []string `short:"p" long:"path" description:"Add a path to the static map" value-name:"PATH"`
+		Areas      []string `short:"a" long:"area" description:"Add an area to the static map" value-name:"AREA"`
+		Circles    []string `short:"C" long:"circle" description:"Add a circle to the static map" value-name:"CIRCLE"`
 	}
 
 	parser := flags.NewParser(&opts, flags.HelpFlag|flags.PassDoubleDash)
 	parser.LongDescription = `Creates a static map`
 	_, err := parser.Parse()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	if parser.FindOptionByLongName("help").IsSet() {
 		parser.WriteHelp(os.Stdout)
@@ -163,9 +190,18 @@ func main() {
 		handleBboxOption(ctx, opts.BBox)
 	}
 
+	if parser.FindOptionByLongName("background").IsSet() {
+		handleBackgroundOption(ctx, opts.Background)
+	}
+
+	if parser.FindOptionByLongName("useragent").IsSet() {
+		ctx.SetUserAgent(opts.UserAgent)
+	}
+
 	handleMarkersOption(ctx, opts.Markers)
 	handlePathsOption(ctx, opts.Paths)
 	handleAreasOption(ctx, opts.Areas)
+	handleCirclesOption(ctx, opts.Circles)
 
 	img, err := ctx.Render()
 	if err != nil {

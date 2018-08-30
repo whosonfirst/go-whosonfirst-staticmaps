@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
@@ -72,7 +70,7 @@ func TestFaceUVToXYZ(t *testing.T) {
 
 		// Check that each face has a right-handed coordinate system.
 		if got := uAxis(face).Vector.Cross(vAxis(face).Vector).Dot(unitNorm(face).Vector); got != 1 {
-			t.Errorf("right-handed check failed. uAxis(%d).Cross(vAxis(%d)).Dot(unitNorm%v) = %d, want 1", face, face, face, got)
+			t.Errorf("right-handed check failed. uAxis(%d).Cross(vAxis(%d)).Dot(unitNorm%v) = %f, want 1", face, face, face, got)
 		}
 
 		// Check that the Hilbert curves on each face combine to form a
@@ -185,7 +183,7 @@ func TestUVWAxis(t *testing.T) {
 
 		// Check that every face coordinate frame is right-handed.
 		if got := uAxis(face).Vector.Cross(vAxis(face).Vector).Dot(unitNorm(face).Vector); got != 1 {
-			t.Errorf("right-handed check failed. got %d, want 1", got)
+			t.Errorf("right-handed check failed. got %f, want 1", got)
 		}
 
 		// Check that GetUVWAxis is consistent with GetUAxis, GetVAxis, GetNorm.
@@ -204,7 +202,7 @@ func TestUVWAxis(t *testing.T) {
 func TestSiTiSTRoundtrip(t *testing.T) {
 	// test int -> float -> int direction.
 	for i := 0; i < 1000; i++ {
-		si := uint64(randomUniformInt(maxSiTi))
+		si := uint32(randomUniformInt(maxSiTi))
 		if got := stToSiTi(siTiToST(si)); got != si {
 			t.Errorf("stToSiTi(siTiToST(%v)) = %v, want %v", si, got, si)
 		}
@@ -270,11 +268,12 @@ func TestXYZToFaceSiTi(t *testing.T) {
 			// Finally, test some random (si,ti) values that may be at different
 			// levels, or not at a valid level at all (for example, si == 0).
 			faceRandom := randomUniformInt(numFaces)
-			var siRandom, tiRandom uint64
-			mask := -1 << uint64(maxLevel-level)
+			mask := -1 << uint32(maxLevel-level)
+			siRandom := uint32(randomUint32() & uint32(mask))
+			tiRandom := uint32(randomUint32() & uint32(mask))
 			for siRandom > maxSiTi || tiRandom > maxSiTi {
-				siRandom = uint64(randomUint32() & uint32(mask))
-				tiRandom = uint64(randomUint32() & uint32(mask))
+				siRandom = uint32(randomUint32() & uint32(mask))
+				tiRandom = uint32(randomUint32() & uint32(mask))
 			}
 
 			pRandom := faceSiTiToXYZ(faceRandom, siRandom, tiRandom)
@@ -285,8 +284,8 @@ func TestXYZToFaceSiTi(t *testing.T) {
 				if gotLevel != -1 {
 					t.Errorf("level of random CellID = %v, want %v", gotLevel, -1)
 				}
-				if got := si == 0 || si == maxSiTi || ti == 0 || ti == maxSiTi; !got {
-					t.Errorf("%v face %d, si = %v, want 0 || %v, ti = %v, want 0 || %v", f, faceRandom, si, maxSiTi, ti, maxSiTi)
+				if !(si == 0 || si == maxSiTi || ti == 0 || ti == maxSiTi) {
+					t.Errorf("face %d, si = %v, ti = %v, want 0 or %v for both", f, si, ti, maxSiTi)
 				}
 				continue
 			}
@@ -298,8 +297,8 @@ func TestXYZToFaceSiTi(t *testing.T) {
 				t.Errorf("xyzToFaceSiTi(%v).ti = %v, want %v", pRandom, tiRandom, ti)
 			}
 			if gotLevel >= 0 {
-				if got := cellIDFromFaceIJ(f, int(si/2), int(ti/2)).Parent(gotLevel).Point(); pRandom.ApproxEqual(got) {
-					t.Errorf("cellIDFromFaceIJ(%d, %d, %d, %d) = %v, want %v", f, int(si/2), int(ti/2), gotLevel, got, pRandom)
+				if got := cellIDFromFaceIJ(f, int(si/2), int(ti/2)).Parent(gotLevel).Point(); !pRandom.ApproxEqual(got) {
+					t.Errorf("cellIDFromFaceIJ(%d, %d, %d).Parent(%d) = %v, want %v", f, si/2, ti/2, gotLevel, got, pRandom)
 				}
 			}
 		}
@@ -315,6 +314,47 @@ func TestXYZFaceSiTiRoundtrip(t *testing.T) {
 			if !ci.Point().ApproxEqual(op) {
 				t.Errorf("faceSiTiToXYZ(xyzToFaceSiTi(%v)) = %v, want %v", ci.Point(), op, ci.Point())
 			}
+		}
+	}
+}
+
+func TestSTUVFace(t *testing.T) {
+	tests := []struct {
+		v    r3.Vector
+		want int
+	}{
+		{r3.Vector{-1, -1, -1}, 5},
+		{r3.Vector{-1, -1, 0}, 4},
+		{r3.Vector{-1, -1, 1}, 2},
+		{r3.Vector{-1, 0, -1}, 5},
+		{r3.Vector{-1, 0, 0}, 3},
+		{r3.Vector{-1, 0, 1}, 2},
+		{r3.Vector{-1, 1, -1}, 5},
+		{r3.Vector{-1, 1, 0}, 1},
+		{r3.Vector{-1, 1, 1}, 2},
+		{r3.Vector{0, -1, -1}, 5},
+		{r3.Vector{0, -1, 0}, 4},
+		{r3.Vector{0, -1, 1}, 2},
+		{r3.Vector{0, 0, -1}, 5},
+		{r3.Vector{0, 0, 0}, 2},
+		{r3.Vector{0, 0, 1}, 2},
+		{r3.Vector{0, 1, -1}, 5},
+		{r3.Vector{0, 1, 0}, 1},
+		{r3.Vector{0, 1, 1}, 2},
+		{r3.Vector{1, -1, -1}, 5},
+		{r3.Vector{1, -1, 0}, 4},
+		{r3.Vector{1, -1, 1}, 2},
+		{r3.Vector{1, 0, -1}, 5},
+		{r3.Vector{1, 0, 0}, 0},
+		{r3.Vector{1, 0, 1}, 2},
+		{r3.Vector{1, 1, -1}, 5},
+		{r3.Vector{1, 1, 0}, 1},
+		{r3.Vector{1, 1, 1}, 2},
+	}
+
+	for _, test := range tests {
+		if got := face(test.v); got != test.want {
+			t.Errorf("face(%v) = %d, want %d", test.v, got, test.want)
 		}
 	}
 }

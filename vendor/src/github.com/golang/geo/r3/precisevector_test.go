@@ -1,18 +1,16 @@
-/*
-Copyright 2016 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2016 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package r3
 
@@ -37,8 +35,8 @@ func TestPreciseRoundtrip(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := PreciseVectorFromVector(test.v).Vector(); !got.ApproxEqual(test.v) {
-			t.Errorf("PreciseVectorFromVector(%v).Vector() = %v, want %v", test.v, got, test.v)
+		if got, want := PreciseVectorFromVector(test.v).Vector(), test.v.Normalize(); !got.ApproxEqual(want) {
+			t.Errorf("PreciseVectorFromVector(%v).Vector() = %v, want %v", test.v, got, want)
 		}
 	}
 }
@@ -147,7 +145,7 @@ func TestPreciseAdd(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := test.v1.Add(test.v2); !got.Equals(test.want) {
+		if got := test.v1.Add(test.v2); !got.Equal(test.want) {
 			t.Errorf("%v + %v = %v, want %v", test.v1, test.v2, got, test.want)
 		}
 	}
@@ -180,7 +178,7 @@ func TestPreciseSub(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := test.v1.Sub(test.v2); !got.Equals(test.want) {
+		if got := test.v1.Sub(test.v2); !got.Equal(test.want) {
 			t.Errorf("%v - %v = %v, want %v", test.v1, test.v2, got, test.want)
 		}
 	}
@@ -225,7 +223,7 @@ func TestPreciseMul(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := test.v.Mul(test.f); !got.Equals(test.want) {
+		if got := test.v.Mul(test.f); !got.Equal(test.want) {
 			t.Errorf("%v.Mul(%v) = %v, want %v", test.v, test.f, got, test.want)
 		}
 	}
@@ -270,7 +268,7 @@ func TestPreciseMulByFloat64(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := test.v.MulByFloat64(test.f); !got.Equals(test.want) {
+		if got := test.v.MulByFloat64(test.f); !got.Equal(test.want) {
 			t.Errorf("%v.MulByFloat64(%v) = %v, want %v", test.v, test.f, got, test.want)
 		}
 	}
@@ -369,7 +367,7 @@ func TestPreciseCross(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := test.v1.Cross(test.v2); !got.Equals(test.want) {
+		if got := test.v1.Cross(test.v2); !got.Equal(test.want) {
 			t.Errorf("%v ⨯ %v = %v, want %v", test.v1, test.v2, got, test.want)
 		}
 	}
@@ -416,7 +414,7 @@ func TestPreciseIdentities(t *testing.T) {
 			t.Errorf("%v = %v · %v != %v · %v = %v", d1, test.v1, test.v2, test.v2, test.v1, d2)
 		}
 		// Cross anti-commutes
-		if !c1.Equals(c2.MulByFloat64(-1.0)) {
+		if !c1.Equal(c2.MulByFloat64(-1.0)) {
 			t.Errorf("%v = %v ⨯ %v != -(%v ⨯ %v) = -%v", c1, test.v1, test.v2, test.v2, test.v1, c2)
 		}
 		// Cross is orthogonal to original vectors

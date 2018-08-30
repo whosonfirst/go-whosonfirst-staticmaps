@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
@@ -148,144 +146,6 @@ func TestPointApproxEqual(t *testing.T) {
 	}
 }
 
-var (
-	pz   = Point{r3.Vector{0, 0, 1}}
-	p000 = Point{r3.Vector{1, 0, 0}}
-	p045 = Point{r3.Vector{1, 1, 0}}
-	p090 = Point{r3.Vector{0, 1, 0}}
-	p180 = Point{r3.Vector{-1, 0, 0}}
-	// Degenerate triangles.
-	pr = Point{r3.Vector{0.257, -0.5723, 0.112}}
-	pq = Point{r3.Vector{-0.747, 0.401, 0.2235}}
-
-	// For testing the Girard area fall through case.
-	g1 = Point{r3.Vector{1, 1, 1}}
-	g2 = Point{g1.Add(pr.Mul(1e-15)).Normalize()}
-	g3 = Point{g1.Add(pq.Mul(1e-15)).Normalize()}
-)
-
-func TestPointArea(t *testing.T) {
-	epsilon := 1e-10
-	tests := []struct {
-		a, b, c  Point
-		want     float64
-		nearness float64
-	}{
-		{p000, p090, pz, math.Pi / 2.0, 0},
-		// This test case should give 0 as the epsilon, but either Go or C++'s value for Pi,
-		// or the accuracy of the multiplications along the way, cause a difference ~15 decimal
-		// places into the result, so it is not quite a difference of 0.
-		{p045, pz, p180, 3.0 * math.Pi / 4.0, 1e-14},
-		// Make sure that Area has good *relative* accuracy even for very small areas.
-		{Point{r3.Vector{epsilon, 0, 1}}, Point{r3.Vector{0, epsilon, 1}}, pz, 0.5 * epsilon * epsilon, 1e-14},
-		// Make sure that it can handle degenerate triangles.
-		{pr, pr, pr, 0.0, 0},
-		{pr, pq, pr, 0.0, 1e-15},
-		{p000, p045, p090, 0.0, 0},
-		// Try a very long and skinny triangle.
-		{p000, Point{r3.Vector{1, 1, epsilon}}, p090, 5.8578643762690495119753e-11, 1e-9},
-		// TODO(roberts):
-		// C++ includes a 10,000 loop of perterbations to test out the Girard area
-		// computation is less than some noise threshold.
-		// Do we need that many? Will one or two suffice?
-		{g1, g2, g3, 0.0, 1e-15},
-	}
-	for _, test := range tests {
-		if got := PointArea(test.a, test.b, test.c); !float64Near(got, test.want, test.nearness) {
-			t.Errorf("PointArea(%v, %v, %v), got %v want %v", test.a, test.b, test.c, got, test.want)
-		}
-	}
-}
-
-func TestPointAreaQuarterHemisphere(t *testing.T) {
-	tests := []struct {
-		a, b, c, d, e Point
-		want          float64
-	}{
-		// Triangles with near-180 degree edges that sum to a quarter-sphere.
-		{Point{r3.Vector{1, 0.1 * epsilon, epsilon}}, p000, p045, p180, pz, math.Pi},
-		// Four other triangles that sum to a quarter-sphere.
-		{Point{r3.Vector{1, 1, epsilon}}, p000, p045, p180, pz, math.Pi},
-		// TODO(roberts):
-		// C++ Includes a loop of 100 perturbations on a hemisphere for more tests.
-	}
-	for _, test := range tests {
-		area := PointArea(test.a, test.b, test.c) +
-			PointArea(test.a, test.c, test.d) +
-			PointArea(test.a, test.d, test.e) +
-			PointArea(test.a, test.e, test.b)
-
-		if !float64Eq(area, test.want) {
-			t.Errorf("Adding up 4 quarter hemispheres with PointArea(), got %v want %v", area, test.want)
-		}
-	}
-}
-
-func TestPointPlanarCentroid(t *testing.T) {
-	tests := []struct {
-		name             string
-		p0, p1, p2, want Point
-	}{
-		{
-			name: "xyz axis",
-			p0:   Point{r3.Vector{0, 0, 1}},
-			p1:   Point{r3.Vector{0, 1, 0}},
-			p2:   Point{r3.Vector{1, 0, 0}},
-			want: Point{r3.Vector{1. / 3, 1. / 3, 1. / 3}},
-		},
-		{
-			name: "Same point",
-			p0:   Point{r3.Vector{1, 0, 0}},
-			p1:   Point{r3.Vector{1, 0, 0}},
-			p2:   Point{r3.Vector{1, 0, 0}},
-			want: Point{r3.Vector{1, 0, 0}},
-		},
-	}
-
-	for _, test := range tests {
-		got := PlanarCentroid(test.p0, test.p1, test.p2)
-		if !got.ApproxEqual(test.want) {
-			t.Errorf("%s: PlanarCentroid(%v, %v, %v) = %v, want %v", test.name, test.p0, test.p1, test.p2, got, test.want)
-		}
-	}
-}
-
-func TestPointTrueCentroid(t *testing.T) {
-	// Test TrueCentroid with very small triangles. This test assumes that
-	// the triangle is small enough so that it is nearly planar.
-	// The centroid of a planar triangle is at the intersection of its
-	// medians, which is two-thirds of the way along each median.
-	for i := 0; i < 100; i++ {
-		f := randomFrame()
-		p := f.col(0)
-		x := f.col(1)
-		y := f.col(2)
-		d := 1e-4 * math.Pow(1e-4, randomFloat64())
-
-		// Make a triangle with two equal sides.
-		p0 := Point{p.Sub(x.Mul(d)).Normalize()}
-		p1 := Point{p.Add(x.Mul(d)).Normalize()}
-		p2 := Point{p.Add(y.Mul(d * 3)).Normalize()}
-		want := Point{p.Add(y.Mul(d)).Normalize()}
-
-		got := TrueCentroid(p0, p1, p2).Normalize()
-		if got.Distance(want.Vector) >= 2e-8 {
-			t.Errorf("TrueCentroid(%v, %v, %v).Normalize() = %v, want %v", p0, p1, p2, got, want)
-		}
-
-		// Make a triangle with a right angle.
-		p0 = p
-		p1 = Point{p.Add(x.Mul(d * 3)).Normalize()}
-		p2 = Point{p.Add(y.Mul(d * 6)).Normalize()}
-		want = Point{p.Add(x.Add(y.Mul(2)).Mul(d)).Normalize()}
-
-		got = TrueCentroid(p0, p1, p2).Normalize()
-		if got.Distance(want.Vector) >= 2e-8 {
-			t.Errorf("TrueCentroid(%v, %v, %v).Normalize() = %v, want %v", p0, p1, p2, got, want)
-		}
-	}
-}
-
 func TestPointRegularPoints(t *testing.T) {
 	// Conversion to/from degrees has a little more variability than the default epsilon.
 	const epsilon = 1e-13
@@ -348,8 +208,14 @@ func TestPointRegion(t *testing.T) {
 	if !r.Contains(p) {
 		t.Errorf("%v.Contains(%v) = false, want true", r, p)
 	}
+	if !r.ContainsPoint(p) {
+		t.Errorf("%v.ContainsPoint(%v) = false, want true", r, p)
+	}
 	if !r.Contains(r) {
 		t.Errorf("%v.Contains(%v) = false, want true", r, r)
+	}
+	if !r.ContainsPoint(r) {
+		t.Errorf("%v.ContainsPoint(%v) = false, want true", r, r)
 	}
 	if s := (Point{r3.Vector{1, 0, 1}}); r.Contains(s) {
 		t.Errorf("%v.Contains(%v) = true, want false", r, s)
@@ -369,16 +235,55 @@ func TestPointRegion(t *testing.T) {
 	if !r.IntersectsCell(cell) {
 		t.Errorf("%v.IntersectsCell(%v) = false, want true", r, cell)
 	}
+
 }
 
-func BenchmarkPointArea(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		PointArea(p000, p090, pz)
-	}
-}
+func TestPointRotate(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		axis := randomPoint()
+		target := randomPoint()
+		// Choose a distance whose logarithm is uniformly distributed.
+		distance := s1.Angle(math.Pi * math.Pow(1e-15, randomFloat64()))
+		// Sometimes choose points near the far side of the axis.
+		if oneIn(5) {
+			distance = math.Pi - distance
+		}
+		p := InterpolateAtDistance(distance, axis, target)
+		// Choose the rotation angle.
+		angle := s1.Angle(2 * math.Pi * math.Pow(1e-15, randomFloat64()))
+		if oneIn(3) {
+			angle = -angle
+		}
+		if oneIn(10) {
+			angle = 0
+		}
 
-func BenchmarkPointAreaGirardCase(b *testing.B) {
-	for i := 0; i < b.N; i++ {
-		PointArea(g1, g2, g3)
+		got := Rotate(p, axis, angle)
+
+		if !got.IsUnit() {
+			t.Errorf("%v should be unit length", got)
+		}
+
+		// got and p should be the same distance from axis.
+		const maxPositionError = 1e-15
+		if (got.Distance(axis) - p.Distance(axis)).Abs().Radians() > maxPositionError {
+			t.Errorf("rotated point %v should be same distance as %v, got %v, want %v", got, p, got.Distance(axis), p.Distance(axis))
+		}
+
+		// Check that the rotation angle is correct. We allow a fixed error in the
+		// *position* of the result, so we need to convert this into a rotation
+		// angle. The allowable error can be very large as "p" approaches "axis".
+		axisDistance := p.Cross(axis.Vector).Norm()
+		maxRotationError := 0.0
+		if axisDistance < maxPositionError {
+			maxRotationError = 2 * math.Pi
+		} else {
+			maxRotationError = math.Asin(maxPositionError / axisDistance)
+		}
+		actualRotation := TurnAngle(p, axis, got) + math.Pi
+		rotationError := math.Remainder((angle - actualRotation).Radians(), 2*math.Pi)
+		if rotationError > maxRotationError {
+			t.Errorf("rotational angle of %v = %v, want %v", got, actualRotation, angle)
+		}
 	}
 }

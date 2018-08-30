@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package r3
 
@@ -32,6 +30,8 @@ func TestVectorNorm(t *testing.T) {
 		{Vector{0, 1, 0}, 1},
 		{Vector{3, -4, 12}, 13},
 		{Vector{1, 1e-16, 1e-32}, 1},
+		// This will overflow the float64, and should return zero.
+		{Vector{-0, 4.3145006366056343748277397783556100978621924913975e-196, 4.3145006366056343748277397783556100978621924913975e-196}, 0},
 	}
 	for _, test := range tests {
 		if !float64Eq(test.v.Norm(), test.want) {
@@ -51,6 +51,7 @@ func TestVectorNorm2(t *testing.T) {
 		{Vector{1, 2, 3}, 14},
 		{Vector{3, -4, 12}, 169},
 		{Vector{1, 1e-16, 1e-32}, 1},
+		{Vector{-0, 4.3145006366056343748277397783556100978621924913975e-196, 4.3145006366056343748277397783556100978621924913975e-196}, 0},
 	}
 	for _, test := range tests {
 		if !float64Eq(test.v.Norm2(), test.want) {
@@ -76,6 +77,14 @@ func TestVectorNormalize(t *testing.T) {
 		if !float64Eq(nv.Norm(), 1.0) {
 			t.Errorf("|%v| = %v, want 1", v, v.Norm())
 		}
+	}
+
+	// Test a vector that overflows a float64 during normalize.
+	// Prior to this change, we would compute:
+	// (0, 4.3145006366056343748277397783556100978621924913975e-196, 4.3145006366056343748277397783556100978621924913975e-196).Normalize() = (NaN, +Inf, +Inf)
+	v := Vector{-0, 4.3145006366056343748277397783556100978621924913975e-196, 4.3145006366056343748277397783556100978621924913975e-196}
+	if got, want := v.Normalize(), (Vector{0, 0, 0}); got != want {
+		t.Errorf("%v.Normalize() = %v, want %v", v, got, want)
 	}
 }
 

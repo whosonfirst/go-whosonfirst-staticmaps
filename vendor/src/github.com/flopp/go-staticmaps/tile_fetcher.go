@@ -26,6 +26,7 @@ type TileFetcher struct {
 	tileProvider *TileProvider
 	cacheDir     string
 	useCaching   bool
+	userAgent    string
 }
 
 // NewTileFetcher creates a new Tilefetcher struct
@@ -35,7 +36,13 @@ func NewTileFetcher(tileProvider *TileProvider) *TileFetcher {
 	app := appdirs.New("go-staticmaps", "flopp.net", "0.1")
 	t.cacheDir = fmt.Sprintf("%s/%s", app.UserCache(), tileProvider.Name)
 	t.useCaching = true
+	t.userAgent = "Mozilla/5.0+(compatible; go-staticmaps/0.1; https://github.com/flopp/go-staticmaps)"
 	return t
+}
+
+// SetUserAgent sets the HTTP user agent string used when downloading map tiles
+func (t *TileFetcher) SetUserAgent(a string) {
+	t.userAgent = a
 }
 
 func (t *TileFetcher) url(zoom, x, y int) string {
@@ -88,7 +95,10 @@ func (t *TileFetcher) Fetch(zoom, x, y int) (image.Image, error) {
 }
 
 func (t *TileFetcher) download(url string) ([]byte, error) {
-	resp, err := http.Get(url)
+	req, _ := http.NewRequest("GET", url, nil)
+	req.Header.Set("User-Agent", t.userAgent)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}

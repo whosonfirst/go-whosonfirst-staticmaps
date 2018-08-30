@@ -15,9 +15,12 @@ import (
 	"time"
 )
 
-// An array cannot be constant :( The first one if the default layout:
-var TIMELAYOUTS = []string{
-	"2006-01-02T15:04:05Z",
+const formattingTimelayout = "2006-01-02T15:04:05Z"
+
+// parsingTimelayouts defines a list of possible time formats
+var parsingTimelayouts = []string{
+	"2006-01-02T15:04:05.000Z",
+	formattingTimelayout,
 	"2006-01-02T15:04:05",
 	"2006-01-02 15:04:05Z",
 	"2006-01-02 15:04:05",
@@ -31,14 +34,14 @@ func init() {
 	*/
 }
 
+//ToXmlParams contains settings for xml transformation
 type ToXmlParams struct {
 	Version string
 	Indent  bool
 }
 
-/*
- * Params are optional, you can set null to use GPXs Version and no indentation.
- */
+//ToXml returns the xml representation of the GPX object.
+//Params are optional, you can set null to use GPXs Version and no indentation.
 func ToXml(g *GPX, params ToXmlParams) ([]byte, error) {
 	version := g.Version
 	if len(params.Version) > 0 {
@@ -59,17 +62,17 @@ func ToXml(g *GPX, params ToXmlParams) ([]byte, error) {
 	var buffer bytes.Buffer
 	buffer.WriteString(xml.Header)
 	if indentation {
-		bytes, err := xml.MarshalIndent(gpxDoc, "", "	")
+		b, err := xml.MarshalIndent(gpxDoc, "", "	")
 		if err != nil {
 			return nil, err
 		}
-		buffer.Write(bytes)
+		buffer.Write(b)
 	} else {
-		bytes, err := xml.Marshal(gpxDoc)
+		b, err := xml.Marshal(gpxDoc)
 		if err != nil {
 			return nil, err
 		}
-		buffer.Write(bytes)
+		buffer.Write(b)
 	}
 	return buffer.Bytes(), nil
 }
@@ -84,16 +87,16 @@ func guessGPXVersion(bytes []byte) (string, error) {
 
 	parts := strings.Split(startOfDocument, "<gpx")
 	if len(parts) <= 1 {
-		return "", errors.New("Invalid GPX file, cannot find version")
+		return "", errors.New("invalid GPX file, cannot find version")
 	}
 	parts = strings.Split(parts[1], "version=")
 
 	if len(parts) <= 1 {
-		return "", errors.New("Invalid GPX file, cannot find version")
+		return "", errors.New("invalid GPX file, cannot find version")
 	}
 
 	if len(parts[1]) < 10 {
-		return "", errors.New("Invalid GPX file, cannot find version")
+		return "", errors.New("invalid GPX file, cannot find version")
 	}
 
 	result := parts[1][1:4]
@@ -107,7 +110,7 @@ func parseGPXTime(timestr string) (*time.Time, error) {
 		timestr = strings.Split(timestr, ".")[0]
 	}
 	timestr = strings.Trim(timestr, " \t\n\r")
-	for _, timeLayout := range TIMELAYOUTS {
+	for _, timeLayout := range parsingTimelayouts {
 		t, err := time.Parse(timeLayout, timestr)
 
 		if err == nil {
@@ -126,9 +129,10 @@ func formatGPXTime(time *time.Time) string {
 		// Invalid date:
 		return ""
 	}
-	return time.Format(TIMELAYOUTS[0])
+	return time.Format(formattingTimelayout)
 }
 
+//ParseFile parses a gpx file and returns a GPX object
 func ParseFile(fileName string) (*GPX, error) {
 	f, err := os.Open(fileName)
 	if err != nil {
@@ -137,14 +141,15 @@ func ParseFile(fileName string) (*GPX, error) {
 
 	defer f.Close()
 
-	bytes, err := ioutil.ReadAll(f)
+	b, err := ioutil.ReadAll(f)
 	if err != nil {
 		return nil, err
 	}
 
-	return ParseBytes(bytes)
+	return ParseBytes(b)
 }
 
+//ParseBytes parses GPX from bytes
 func ParseBytes(bytes []byte) (*GPX, error) {
 	version, err := guessGPXVersion(bytes)
 	if err != nil {
@@ -173,6 +178,7 @@ func ParseBytes(bytes []byte) (*GPX, error) {
 	}
 }
 
+//ParseString parses GPX from string
 func ParseString(str string) (*GPX, error) {
 	return ParseBytes([]byte(str))
 }

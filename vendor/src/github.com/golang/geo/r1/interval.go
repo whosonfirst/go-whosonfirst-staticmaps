@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package r1
 
@@ -61,7 +59,7 @@ func (i Interval) ContainsInterval(oi Interval) bool {
 	return i.Lo <= oi.Lo && oi.Hi <= i.Hi
 }
 
-// InteriorContains returns true iff the the interval strictly contains p.
+// InteriorContains returns true iff the interval strictly contains p.
 func (i Interval) InteriorContains(p float64) bool {
 	return i.Lo < p && p < i.Hi
 }
@@ -84,7 +82,7 @@ func (i Interval) Intersects(oi Interval) bool {
 
 // InteriorIntersects returns true iff the interior of the interval contains any points in common with oi, including the latter's boundary.
 func (i Interval) InteriorIntersects(oi Interval) bool {
-	return oi.Lo < i.Hi && i.Lo < oi.Hi && i.Lo < i.Hi && oi.Lo <= i.Hi
+	return oi.Lo < i.Hi && i.Lo < oi.Hi && i.Lo < i.Hi && oi.Lo <= oi.Hi
 }
 
 // Intersection returns the interval containing all points common to i and j.

@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
@@ -502,7 +500,7 @@ func TestCellContainsPointConsistentWithS2CellIDFromPoint(t *testing.T) {
 }
 
 func TestCellContainsPointContainsAmbiguousPoint(t *testing.T) {
-	// This tests a case where S2CellId returns the "wrong" cell for a point
+	// This tests a case where CellID returns the "wrong" cell for a point
 	// that is very close to the cell edge. (ConsistentWithS2CellIdFromPoint
 	// generates more examples like this.)
 	//
@@ -520,3 +518,213 @@ func TestCellContainsPointContainsAmbiguousPoint(t *testing.T) {
 		t.Errorf("For p=%v, CellFromCellID(cellIDFromPoint(p)).ContainsPoint(p) was false", p)
 	}
 }
+
+func TestCellDistance(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		cell := CellFromCellID(randomCellID())
+		target := randomPoint()
+
+		expectedToBoundary := minDistanceToPointBruteForce(cell, target).Angle()
+		expectedToInterior := expectedToBoundary
+		if cell.ContainsPoint(target) {
+			expectedToInterior = 0
+		}
+		expectedMax := maxDistanceToPointBruteForce(cell, target).Angle()
+
+		actualToBoundary := cell.BoundaryDistance(target).Angle()
+		actualToInterior := cell.Distance(target).Angle()
+		actualMax := cell.MaxDistance(target).Angle()
+
+		// The error has a peak near pi/2 for edge distance, and another peak near
+		// pi for vertex distance.
+		if !float64Near(expectedToBoundary.Radians(), actualToBoundary.Radians(), 1e-12) {
+			t.Errorf("%v.BoundaryDistance(%v) = %v, want %v", cell, target, actualToBoundary, expectedToBoundary)
+		}
+		if !float64Near(expectedToInterior.Radians(), actualToInterior.Radians(), 1e-12) {
+			t.Errorf("%v.Distance(%v) = %v, want %v", cell, target, actualToInterior, expectedToInterior)
+		}
+		if !float64Near(expectedMax.Radians(), actualMax.Radians(), 1e-12) {
+			t.Errorf("%v.MaxDistance(%v) = %v, want %v", cell, target, actualMax, expectedMax)
+		}
+
+		if expectedToBoundary.Radians() <= math.Pi/3 {
+			if !float64Near(expectedToBoundary.Radians(), actualToBoundary.Radians(), 1e-15) {
+				t.Errorf("%v.BoundaryDistance(%v) = %v, want %v", cell, target, actualToBoundary, expectedToBoundary)
+			}
+			if !float64Near(expectedToInterior.Radians(), actualToInterior.Radians(), 1e-15) {
+				t.Errorf("%v.Distance(%v) = %v, want %v", cell, target, actualToInterior, expectedToInterior)
+			}
+		}
+
+		if expectedMax.Radians() <= math.Pi/3 {
+			if !float64Near(expectedMax.Radians(), actualMax.Radians(), 1e-15) {
+				t.Errorf("%v.MaxDistance(%v) = %v, want %v", cell, target, actualMax.Radians(), expectedMax.Radians())
+
+			}
+		}
+	}
+}
+
+func chooseEdgeNearCell(cell Cell) (a, b Point) {
+	c := cell.CapBound()
+	if oneIn(5) {
+		// Choose a point anywhere on the sphere.
+		a = randomPoint()
+	} else {
+		// Choose a point inside or somewhere near the cell.
+		a = samplePointFromCap(CapFromCenterChordAngle(c.center, 1.5*c.radius))
+	}
+
+	// Now choose a maximum edge length ranging from very short to very long
+	// relative to the cell size, and choose the other endpoint.
+	maxLength := math.Min(100*math.Pow(1e-4, randomFloat64())*c.Radius().Radians(), math.Pi/2)
+	b = samplePointFromCap(CapFromCenterAngle(a, s1.Angle(maxLength)))
+
+	// Occasionally replace edge with antipodal edge.
+	if oneIn(20) {
+		a = Point{a.Mul(-1)}
+		b = Point{b.Mul(-1)}
+	}
+
+	return a, b
+}
+
+func minDistanceToPointBruteForce(cell Cell, target Point) s1.ChordAngle {
+	minDistance := s1.InfChordAngle()
+	for i := 0; i < 4; i++ {
+		minDistance, _ = UpdateMinDistance(target, cell.Vertex(i),
+			cell.Vertex((i+1)%4), minDistance)
+	}
+	return minDistance
+}
+
+func maxDistanceToPointBruteForce(cell Cell, target Point) s1.ChordAngle {
+	maxDistance := s1.NegativeChordAngle
+	for i := 0; i < 4; i++ {
+		maxDistance, _ = UpdateMaxDistance(target, cell.Vertex(i),
+			cell.Vertex((i+1)%4), maxDistance)
+	}
+	return maxDistance
+}
+
+func minDistanceToEdgeBruteForce(cell Cell, a, b Point) s1.ChordAngle {
+	if cell.ContainsPoint(a) || cell.ContainsPoint(b) {
+		return s1.ChordAngle(0)
+	}
+
+	minDist := s1.InfChordAngle()
+	for i := 0; i < 4; i++ {
+		v0 := cell.Vertex(i)
+		v1 := cell.Vertex((i + 1) % 4)
+		// If the antipodal edge crosses through the cell, min distance is 0.
+		if CrossingSign(a, b, v0, v1) != DoNotCross {
+			return s1.ChordAngle(0)
+		}
+		minDist, _ = UpdateMinDistance(a, v0, v1, minDist)
+		minDist, _ = UpdateMinDistance(b, v0, v1, minDist)
+		minDist, _ = UpdateMinDistance(v0, a, b, minDist)
+	}
+	return minDist
+}
+
+func maxDistanceToEdgeBruteForce(cell Cell, a, b Point) s1.ChordAngle {
+	// If any antipodal endpoint is within the cell, the max distance is Pi.
+	if cell.ContainsPoint(Point{a.Mul(-1)}) || cell.ContainsPoint(Point{b.Mul(-1)}) {
+		return s1.StraightChordAngle
+	}
+
+	maxDist := s1.NegativeChordAngle
+	for i := 0; i < 4; i++ {
+		v0 := cell.Vertex(i)
+		v1 := cell.Vertex((i + 1) % 4)
+		// If the antipodal edge crosses through the cell, min distance is Pi.
+		if CrossingSign(Point{a.Mul(-1)}, Point{b.Mul(-1)}, v0, v1) != DoNotCross {
+			return s1.StraightChordAngle
+		}
+		maxDist, _ = UpdateMaxDistance(a, v0, v1, maxDist)
+		maxDist, _ = UpdateMaxDistance(b, v0, v1, maxDist)
+		maxDist, _ = UpdateMaxDistance(v0, a, b, maxDist)
+	}
+	return maxDist
+}
+
+func TestCellDistanceToEdge(t *testing.T) {
+	for iter := 0; iter < 1000; iter++ {
+		cell := CellFromCellID(randomCellID())
+
+		a, b := chooseEdgeNearCell(cell)
+		expectedMin := minDistanceToEdgeBruteForce(cell, a, b).Angle()
+		expectedMax := maxDistanceToEdgeBruteForce(cell, a, b).Angle()
+		actualMin := cell.DistanceToEdge(a, b).Angle()
+		actualMax := cell.MaxDistanceToEdge(a, b).Angle()
+
+		// The error has a peak near Pi/2 for edge distance, and another peak near
+		// Pi for vertex distance.
+		expectedError := 1e-12
+		if expectedMin.Radians() > math.Pi/2 {
+			// Max error for ChordAngle as it approaches Pi is about 2e-8.
+			expectedError = 2e-8
+		} else if expectedMin.Radians() <= math.Pi/3 {
+			expectedError = 1e-15
+		}
+
+		if !float64Near(expectedMin.Radians(), actualMin.Radians(), expectedError) {
+			t.Errorf("%v.DistanceToEdge(%v, %v) = %v, want %v", cell, a, b, actualMin, expectedMin)
+		}
+
+		if !float64Near(expectedMax.Radians(), actualMax.Radians(), 1e-12) {
+			t.Errorf("%v.MaxDistanceToEdge(%v, %v) = %v, want %v", cell, a, b, actualMax, expectedMax)
+		}
+		if expectedMax.Radians() <= math.Pi/3 && !float64Near(expectedMax.Radians(), actualMax.Radians(), 1e-15) {
+			t.Errorf("%v.MaxDistanceToEdge(%v, %v) = %v, want %v", cell, a, b, actualMax, expectedMax)
+		}
+	}
+}
+
+func TestCellMaxDistanceToEdge(t *testing.T) {
+	// Test an edge for which its antipode crosses the cell. Validates both the
+	// standard and brute force implementations for this case.
+	cell := CellFromCellID(CellIDFromFacePosLevel(0, 0, 20))
+	a := Point{Interpolate(2.0, cell.Center(), cell.Vertex(0)).Mul(-1)}
+	b := Point{Interpolate(2.0, cell.Center(), cell.Vertex(2)).Mul(-1)}
+
+	actual := cell.MaxDistanceToEdge(a, b)
+	expected := maxDistanceToEdgeBruteForce(cell, a, b)
+
+	if !float64Near(expected.Angle().Radians(), s1.StraightChordAngle.Angle().Radians(), 1e-15) {
+		t.Errorf("brute force %v.MaxDistanceToEdge(%v, %v) = %v, want ~%v", cell, a, b, expected, s1.StraightChordAngle.Angle().Radians())
+	}
+	if !float64Near(actual.Angle().Radians(), s1.StraightChordAngle.Angle().Radians(), 1e-15) {
+		t.Errorf("actual %v.MaxDistanceToEdge(%v, %v) = %v, want ~%v", cell, a, b, actual, s1.StraightChordAngle.Angle().Radians())
+	}
+}
+
+func TestCellMaxDistanceToCellAntipodal(t *testing.T) {
+	p := parsePoint("0:0")
+	cell := CellFromPoint(p)
+	antipodalCell := CellFromPoint(Point{p.Mul(-1)})
+	dist := cell.MaxDistanceToCell(antipodalCell)
+
+	if dist != s1.StraightChordAngle {
+		t.Errorf("%v.MaxDistanceToCell(%v) = %v, want %v", cell, antipodalCell, dist, s1.StraightChordAngle)
+	}
+}
+
+func TestCellMaxDistanceToCell(t *testing.T) {
+	for i := 0; i < 1000; i++ {
+		cell := CellFromCellID(randomCellID())
+		testCell := CellFromCellID(randomCellID())
+		antipodalLeafID := cellIDFromPoint(Point{testCell.Center().Mul(-1)})
+		antipodalTestCell := CellFromCellID(antipodalLeafID.Parent(testCell.Level()))
+
+		distFromMin := s1.StraightChordAngle - cell.DistanceToCell(antipodalTestCell)
+		distFromMax := cell.MaxDistanceToCell(testCell)
+		if !float64Near(distFromMin.Angle().Radians(), distFromMax.Angle().Radians(), 1e-8) {
+			t.Errorf("min distance from antipodal cell: %v - %v.DistanceToCell(%v) = %v, max distance to cell: %v.MaxDistanceToCell(%v) = %v. difference = %v, want < %v", s1.StraightChordAngle, cell, antipodalTestCell, distFromMin, cell, testCell, distFromMax, math.Abs((distFromMin.Angle().Radians() - distFromMax.Angle().Radians())), 1e-8)
+		}
+	}
+}
+
+// TODO(roberts): Differences from C++.
+// CellVsLoopRectBound
+// RectBoundIsLargeEnough

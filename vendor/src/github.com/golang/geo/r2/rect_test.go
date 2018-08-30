@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 // Most of the Rect methods have trivial implementations in terms of the
 // Interval class, so most of the testing is done in that unit test.
@@ -189,8 +187,8 @@ func TestFromVariousTypes(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		if got := test.r1.ApproxEquals(test.r2); !got {
-			t.Errorf("%v.ApproxEquals(%v); got %v want true", test.r1, test.r2, got)
+		if got := test.r1.ApproxEqual(test.r2); !got {
+			t.Errorf("%v.ApproxEqual(%v); got %v want true", test.r1, test.r2, got)
 		}
 	}
 }
@@ -350,7 +348,7 @@ func TestIntervalOps(t *testing.T) {
 		}
 
 		tCon := test.r1.Contains(test.r2)
-		if got := test.r1.Union(test.r2).ApproxEquals(test.r1); got != tCon {
+		if got := test.r1.Union(test.r2).ApproxEqual(test.r1); got != tCon {
 			t.Errorf("%v.Union(%v) == %v.Contains(%v); got %v want %v",
 				test.r1, test.r2, test.r1, test.r2, got, tCon)
 		}
@@ -388,7 +386,7 @@ func TestAddPoint(t *testing.T) {
 	r2 = r2.AddPoint(nw)
 	r2 = r2.AddPoint(Point{0.1, 0.4})
 
-	if !r1.ApproxEquals(r2) {
+	if !r1.ApproxEqual(r2) {
 		t.Errorf("%v.AddPoint(%v); got false want true", r1, r2)
 	}
 }
@@ -446,7 +444,7 @@ func TestExpandedEmpty(t *testing.T) {
 	}
 }
 
-func TestExpandedEquals(t *testing.T) {
+func TestExpandedEqual(t *testing.T) {
 	tests := []struct {
 		rect Rect
 		p    Point
@@ -469,7 +467,7 @@ func TestExpandedEquals(t *testing.T) {
 		},
 	}
 	for _, test := range tests {
-		if got := test.rect.Expanded(test.p); !got.ApproxEquals(test.want) {
+		if got := test.rect.Expanded(test.p); !got.ApproxEqual(test.want) {
 			t.Errorf("%v.Expanded(%v); got %v want %v", test.rect, test.p, got, test.want)
 		}
 	}

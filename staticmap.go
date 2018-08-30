@@ -168,7 +168,7 @@ func (s *StaticMap) Render() (image.Image, error) {
 
 func (s *StaticMap) Fetch() ([]byte, error) {
 
-	url, err := uri.Id2AbsPath(s.DataRoot, int(s.wofid))
+	url, err := uri.Id2AbsPath(s.DataRoot, s.wofid)
 
 	if err != nil {
 		return nil, err

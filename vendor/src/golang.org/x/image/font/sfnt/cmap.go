@@ -5,8 +5,6 @@
 package sfnt
 
 import (
-	"unicode/utf8"
-
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -25,8 +23,9 @@ const (
 
 	psidMacintoshRoman = 0
 
-	psidWindowsUCS2 = 1
-	psidWindowsUCS4 = 10
+	psidWindowsSymbol = 0
+	psidWindowsUCS2   = 1
+	psidWindowsUCS4   = 10
 )
 
 // platformEncodingWidth returns the number of bytes per character assumed by
@@ -61,6 +60,8 @@ func platformEncodingWidth(pid, psid uint16) int {
 
 	case pidWindows:
 		switch psid {
+		case psidWindowsSymbol:
+			return 2
 		case psidWindowsUCS2:
 			return 2
 		case psidWindowsUCS4:
@@ -85,7 +86,7 @@ var supportedCmapFormat = func(format, pid, psid uint16) bool {
 	return false
 }
 
-func (f *Font) makeCachedGlyphIndex(buf []byte, offset, length uint32, format uint16) ([]byte, error) {
+func (f *Font) makeCachedGlyphIndex(buf []byte, offset, length uint32, format uint16) ([]byte, glyphIndexFunc, error) {
 	switch format {
 	case 0:
 		return f.makeCachedGlyphIndexFormat0(buf, offset, length)
@@ -97,64 +98,55 @@ func (f *Font) makeCachedGlyphIndex(buf []byte, offset, length uint32, format ui
 	panic("unreachable")
 }
 
-func (f *Font) makeCachedGlyphIndexFormat0(buf []byte, offset, length uint32) ([]byte, error) {
+func (f *Font) makeCachedGlyphIndexFormat0(buf []byte, offset, length uint32) ([]byte, glyphIndexFunc, error) {
 	if length != 6+256 || offset+length > f.cmap.length {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	var err error
 	buf, err = f.src.view(buf, int(f.cmap.offset+offset), int(length))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var table [256]byte
 	copy(table[:], buf[6:])
-	f.cached.glyphIndex = func(f *Font, b *Buffer, r rune) (GlyphIndex, error) {
-		// TODO: for this closure to be goroutine-safe, the
-		// golang.org/x/text/encoding/charmap API needs to allocate a new
-		// Encoder and new []byte buffers, for every call to this closure, even
-		// though all we want to do is to encode one rune as one byte. We could
-		// possibly add some fields in the Buffer struct to re-use these
-		// allocations, but a better solution is to improve the charmap API.
-		var dst, src [utf8.UTFMax]byte
-		n := utf8.EncodeRune(src[:], r)
-		_, _, err = charmap.Macintosh.NewEncoder().Transform(dst[:], src[:n], true)
-		if err != nil {
+	return buf, func(f *Font, b *Buffer, r rune) (GlyphIndex, error) {
+		x, ok := charmap.Macintosh.EncodeRune(r)
+		if !ok {
 			// The source rune r is not representable in the Macintosh-Roman encoding.
 			return 0, nil
 		}
-		return GlyphIndex(table[dst[0]]), nil
-	}
-	return buf, nil
+		return GlyphIndex(table[x]), nil
+	}, nil
 }
 
-func (f *Font) makeCachedGlyphIndexFormat4(buf []byte, offset, length uint32) ([]byte, error) {
+func (f *Font) makeCachedGlyphIndexFormat4(buf []byte, offset, length uint32) ([]byte, glyphIndexFunc, error) {
 	const headerSize = 14
 	if offset+headerSize > f.cmap.length {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	var err error
 	buf, err = f.src.view(buf, int(f.cmap.offset+offset), headerSize)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	offset += headerSize
 
 	segCount := u16(buf[6:])
 	if segCount&1 != 0 {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	segCount /= 2
 	if segCount > maxCmapSegments {
-		return nil, errUnsupportedNumberOfCmapSegments
+		return nil, nil, errUnsupportedNumberOfCmapSegments
 	}
 
 	eLength := 8*uint32(segCount) + 2
 	if offset+eLength > f.cmap.length {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	buf, err = f.src.view(buf, int(f.cmap.offset+offset), int(eLength))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	offset += eLength
 
@@ -170,7 +162,7 @@ func (f *Font) makeCachedGlyphIndexFormat4(buf []byte, offset, length uint32) ([
 	indexesBase := f.cmap.offset + offset
 	indexesLength := f.cmap.length - offset
 
-	f.cached.glyphIndex = func(f *Font, b *Buffer, r rune) (GlyphIndex, error) {
+	return buf, func(f *Font, b *Buffer, r rune) (GlyphIndex, error) {
 		if uint32(r) > 0xffff {
 			return 0, nil
 		}
@@ -198,38 +190,37 @@ func (f *Font) makeCachedGlyphIndexFormat4(buf []byte, offset, length uint32) ([
 			}
 		}
 		return 0, nil
-	}
-	return buf, nil
+	}, nil
 }
 
-func (f *Font) makeCachedGlyphIndexFormat12(buf []byte, offset, _ uint32) ([]byte, error) {
+func (f *Font) makeCachedGlyphIndexFormat12(buf []byte, offset, _ uint32) ([]byte, glyphIndexFunc, error) {
 	const headerSize = 16
 	if offset+headerSize > f.cmap.length {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	var err error
 	buf, err = f.src.view(buf, int(f.cmap.offset+offset), headerSize)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	length := u32(buf[4:])
 	if f.cmap.length < offset || length > f.cmap.length-offset {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	offset += headerSize
 
 	numGroups := u32(buf[12:])
 	if numGroups > maxCmapSegments {
-		return nil, errUnsupportedNumberOfCmapSegments
+		return nil, nil, errUnsupportedNumberOfCmapSegments
 	}
 
 	eLength := 12 * numGroups
 	if headerSize+eLength != length {
-		return nil, errInvalidCmapTable
+		return nil, nil, errInvalidCmapTable
 	}
 	buf, err = f.src.view(buf, int(f.cmap.offset+offset), int(eLength))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	offset += eLength
 
@@ -242,7 +233,7 @@ func (f *Font) makeCachedGlyphIndexFormat12(buf []byte, offset, _ uint32) ([]byt
 		}
 	}
 
-	f.cached.glyphIndex = func(f *Font, b *Buffer, r rune) (GlyphIndex, error) {
+	return buf, func(f *Font, b *Buffer, r rune) (GlyphIndex, error) {
 		c := uint32(r)
 		for i, j := 0, len(entries); i < j; {
 			h := i + (j-i)/2
@@ -256,8 +247,7 @@ func (f *Font) makeCachedGlyphIndexFormat12(buf []byte, offset, _ uint32) ([]byt
 			}
 		}
 		return 0, nil
-	}
-	return buf, nil
+	}, nil
 }
 
 type cmapEntry16 struct {

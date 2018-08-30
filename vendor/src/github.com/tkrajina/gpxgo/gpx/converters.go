@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-const DEFAULT_CREATOR = "https://github.com/tkrajina/gpxgo"
+//defaultCreator contains the original repo path
+const defaultCreator = "https://github.com/tkrajina/gpxgo"
 
 // ----------------------------------------------------------------------------------------------------
 // Gpx 1.0 Stuff
@@ -25,7 +26,7 @@ func convertToGpx10Models(gpxDoc *GPX) *gpx10Gpx {
 
 	gpx10Doc.Version = "1.0"
 	if len(gpxDoc.Creator) == 0 {
-		gpx10Doc.Creator = DEFAULT_CREATOR
+		gpx10Doc.Creator = defaultCreator
 	} else {
 		gpx10Doc.Creator = gpxDoc.Creator
 	}
@@ -307,7 +308,7 @@ func convertToGpx11Models(gpxDoc *GPX) *gpx11Gpx {
 	gpx11Doc.XmlSchemaLoc = gpxDoc.XmlSchemaLoc
 
 	if len(gpxDoc.Creator) == 0 {
-		gpx11Doc.Creator = DEFAULT_CREATOR
+		gpx11Doc.Creator = defaultCreator
 	} else {
 		gpx11Doc.Creator = gpxDoc.Creator
 	}
@@ -421,9 +422,9 @@ func convertToGpx11Models(gpxDoc *GPX) *gpx11Gpx {
 func convertFromGpx11Models(gpx11Doc *gpx11Gpx) *GPX {
 	gpxDoc := new(GPX)
 
-	gpxDoc.XMLNs = gpxDoc.XMLNs
-	gpxDoc.XmlNsXsi = gpxDoc.XmlNsXsi
-	gpxDoc.XmlSchemaLoc = gpxDoc.XmlSchemaLoc
+	gpxDoc.XMLNs = gpx11Doc.XMLNs
+	gpxDoc.XmlNsXsi = gpx11Doc.XmlNsXsi
+	gpxDoc.XmlSchemaLoc = gpx11Doc.XmlSchemaLoc
 
 	gpxDoc.Creator = gpx11Doc.Creator
 	gpxDoc.Version = gpx11Doc.Version

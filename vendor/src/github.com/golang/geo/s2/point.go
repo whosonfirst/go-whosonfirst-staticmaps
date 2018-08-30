@@ -1,23 +1,24 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
 import (
+	"fmt"
+	"io"
 	"math"
+	"sort"
 
 	"github.com/golang/geo/r3"
 	"github.com/golang/geo/s1"
@@ -28,6 +29,18 @@ import (
 type Point struct {
 	r3.Vector
 }
+
+// sortPoints sorts the slice of Points in place.
+func sortPoints(e []Point) {
+	sort.Sort(points(e))
+}
+
+// points implements the Sort interface for slices of Point.
+type points []Point
+
+func (p points) Len() int           { return len(p) }
+func (p points) Swap(i, j int)      { p[i], p[j] = p[j], p[i] }
+func (p points) Less(i, j int) bool { return p[i].Cmp(p[j].Vector) == -1 }
 
 // PointFromCoords creates a new normalized point from coordinates.
 //
@@ -118,136 +131,6 @@ func (p Point) ApproxEqual(other Point) bool {
 	return p.Vector.Angle(other.Vector) <= s1.Angle(epsilon)
 }
 
-// PointArea returns the area on the unit sphere for the triangle defined by the
-// given points.
-//
-// This method is based on l'Huilier's theorem,
-//
-//   tan(E/4) = sqrt(tan(s/2) tan((s-a)/2) tan((s-b)/2) tan((s-c)/2))
-//
-// where E is the spherical excess of the triangle (i.e. its area),
-//       a, b, c are the side lengths, and
-//       s is the semiperimeter (a + b + c) / 2.
-//
-// The only significant source of error using l'Huilier's method is the
-// cancellation error of the terms (s-a), (s-b), (s-c). This leads to a
-// *relative* error of about 1e-16 * s / min(s-a, s-b, s-c). This compares
-// to a relative error of about 1e-15 / E using Girard's formula, where E is
-// the true area of the triangle. Girard's formula can be even worse than
-// this for very small triangles, e.g. a triangle with a true area of 1e-30
-// might evaluate to 1e-5.
-//
-// So, we prefer l'Huilier's formula unless dmin < s * (0.1 * E), where
-// dmin = min(s-a, s-b, s-c). This basically includes all triangles
-// except for extremely long and skinny ones.
-//
-// Since we don't know E, we would like a conservative upper bound on
-// the triangle area in terms of s and dmin. It's possible to show that
-// E <= k1 * s * sqrt(s * dmin), where k1 = 2*sqrt(3)/Pi (about 1).
-// Using this, it's easy to show that we should always use l'Huilier's
-// method if dmin >= k2 * s^5, where k2 is about 1e-2. Furthermore,
-// if dmin < k2 * s^5, the triangle area is at most k3 * s^4, where
-// k3 is about 0.1. Since the best case error using Girard's formula
-// is about 1e-15, this means that we shouldn't even consider it unless
-// s >= 3e-4 or so.
-func PointArea(a, b, c Point) float64 {
-	sa := float64(b.Angle(c.Vector))
-	sb := float64(c.Angle(a.Vector))
-	sc := float64(a.Angle(b.Vector))
-	s := 0.5 * (sa + sb + sc)
-	if s >= 3e-4 {
-		// Consider whether Girard's formula might be more accurate.
-		dmin := s - math.Max(sa, math.Max(sb, sc))
-		if dmin < 1e-2*s*s*s*s*s {
-			// This triangle is skinny enough to use Girard's formula.
-			ab := a.PointCross(b)
-			bc := b.PointCross(c)
-			ac := a.PointCross(c)
-			area := math.Max(0.0, float64(ab.Angle(ac.Vector)-ab.Angle(bc.Vector)+bc.Angle(ac.Vector)))
-
-			if dmin < s*0.1*area {
-				return area
-			}
-		}
-	}
-
-	// Use l'Huilier's formula.
-	return 4 * math.Atan(math.Sqrt(math.Max(0.0, math.Tan(0.5*s)*math.Tan(0.5*(s-sa))*
-		math.Tan(0.5*(s-sb))*math.Tan(0.5*(s-sc)))))
-}
-
-// TrueCentroid returns the true centroid of the spherical triangle ABC multiplied by the
-// signed area of spherical triangle ABC. The result is not normalized.
-// The reasons for multiplying by the signed area are (1) this is the quantity
-// that needs to be summed to compute the centroid of a union or difference of triangles,
-// and (2) it's actually easier to calculate this way. All points must have unit length.
-//
-// The true centroid (mass centroid) is defined as the surface integral
-// over the spherical triangle of (x,y,z) divided by the triangle area.
-// This is the point that the triangle would rotate around if it was
-// spinning in empty space.
-//
-// The best centroid for most purposes is the true centroid. Unlike the
-// planar and surface centroids, the true centroid behaves linearly as
-// regions are added or subtracted. That is, if you split a triangle into
-// pieces and compute the average of their centroids (weighted by triangle
-// area), the result equals the centroid of the original triangle. This is
-// not true of the other centroids.
-func TrueCentroid(a, b, c Point) Point {
-	ra := float64(1)
-	if sa := float64(b.Distance(c)); sa != 0 {
-		ra = sa / math.Sin(sa)
-	}
-	rb := float64(1)
-	if sb := float64(c.Distance(a)); sb != 0 {
-		rb = sb / math.Sin(sb)
-	}
-	rc := float64(1)
-	if sc := float64(a.Distance(b)); sc != 0 {
-		rc = sc / math.Sin(sc)
-	}
-
-	// Now compute a point M such that:
-	//
-	//  [Ax Ay Az] [Mx]                       [ra]
-	//  [Bx By Bz] [My]  = 0.5 * det(A,B,C) * [rb]
-	//  [Cx Cy Cz] [Mz]                       [rc]
-	//
-	// To improve the numerical stability we subtract the first row (A) from the
-	// other two rows; this reduces the cancellation error when A, B, and C are
-	// very close together. Then we solve it using Cramer's rule.
-	//
-	// This code still isn't as numerically stable as it could be.
-	// The biggest potential improvement is to compute B-A and C-A more
-	// accurately so that (B-A)x(C-A) is always inside triangle ABC.
-	x := r3.Vector{a.X, b.X - a.X, c.X - a.X}
-	y := r3.Vector{a.Y, b.Y - a.Y, c.Y - a.Y}
-	z := r3.Vector{a.Z, b.Z - a.Z, c.Z - a.Z}
-	r := r3.Vector{ra, rb - ra, rc - ra}
-
-	return Point{r3.Vector{y.Cross(z).Dot(r), z.Cross(x).Dot(r), x.Cross(y).Dot(r)}.Mul(0.5)}
-}
-
-// PlanarCentroid returns the centroid of the planar triangle ABC, which is not normalized.
-// It can be normalized to unit length to obtain the "surface centroid" of the corresponding
-// spherical triangle, i.e. the intersection of the three medians. However,
-// note that for large spherical triangles the surface centroid may be
-// nowhere near the intuitive "center" (see example in TrueCentroid comments).
-//
-// Note that the surface centroid may be nowhere near the intuitive
-// "center" of a spherical triangle. For example, consider the triangle
-// with vertices A=(1,eps,0), B=(0,0,1), C=(-1,eps,0) (a quarter-sphere).
-// The surface centroid of this triangle is at S=(0, 2*eps, 1), which is
-// within a distance of 2*eps of the vertex B. Note that the median from A
-// (the segment connecting A to the midpoint of BC) passes through S, since
-// this is the shortest path connecting the two endpoints. On the other
-// hand, the true centroid is at M=(0, 0.5, 0.5), which when projected onto
-// the surface is a much more reasonable interpretation of the "center" of
-// this triangle.
-func PlanarCentroid(a, b, c Point) Point {
-	return Point{a.Add(b.Vector).Add(c.Vector).Mul(1. / 3)}
-}
-
 // ChordAngleBetweenPoints constructs a ChordAngle corresponding to the distance
 // between the two given points. The points must be unit length.
 func ChordAngleBetweenPoints(x, y Point) s1.ChordAngle {
@@ -301,11 +184,70 @@ func (p Point) IntersectsCell(c Cell) bool {
 	return c.ContainsPoint(p)
 }
 
+// ContainsPoint reports if this Point contains the other Point.
+// (This method is named to satisfy the Region interface.)
+func (p Point) ContainsPoint(other Point) bool {
+	return p.Contains(other)
+}
+
+// CellUnionBound computes a covering of the Point.
+func (p Point) CellUnionBound() []CellID {
+	return p.CapBound().CellUnionBound()
+}
+
 // Contains reports if this Point contains the other Point.
+// (This method matches all other s2 types where the reflexive Contains
+// method does not contain the type's name.)
 func (p Point) Contains(other Point) bool { return p == other }
 
-// TODO: Differences from C++
-// Rotate
-// Angle
-// TurnAngle
-// SignedArea
+// Encode encodes the Point.
+func (p Point) Encode(w io.Writer) error {
+	e := &encoder{w: w}
+	p.encode(e)
+	return e.err
+}
+
+func (p Point) encode(e *encoder) {
+	e.writeInt8(encodingVersion)
+	e.writeFloat64(p.X)
+	e.writeFloat64(p.Y)
+	e.writeFloat64(p.Z)
+}
+
+// Decode decodes the Point.
+func (p *Point) Decode(r io.Reader) error {
+	d := &decoder{r: asByteReader(r)}
+	p.decode(d)
+	return d.err
+}
+
+func (p *Point) decode(d *decoder) {
+	version := d.readInt8()
+	if d.err != nil {
+		return
+	}
+	if version != encodingVersion {
+		d.err = fmt.Errorf("only version %d is supported", encodingVersion)
+		return
+	}
+	p.X = d.readFloat64()
+	p.Y = d.readFloat64()
+	p.Z = d.readFloat64()
+}
+
+// Rotate the given point about the given axis by the given angle. p and
+// axis must be unit length; angle has no restrictions (e.g., it can be
+// positive, negative, greater than 360 degrees, etc).
+func Rotate(p, axis Point, angle s1.Angle) Point {
+	// Let M be the plane through P that is perpendicular to axis, and let
+	// center be the point where M intersects axis. We construct a
+	// right-handed orthogonal frame (dx, dy, center) such that dx is the
+	// vector from center to P, and dy has the same length as dx. The
+	// result can then be expressed as (cos(angle)*dx + sin(angle)*dy + center).
+	center := axis.Mul(p.Dot(axis.Vector))
+	dx := p.Sub(center)
+	dy := axis.Cross(p.Vector)
+	// Mathematically the result is unit length, but normalization is necessary
+	// to ensure that numerical errors don't accumulate.
+	return Point{dx.Mul(math.Cos(angle.Radians())).Add(dy.Mul(math.Sin(angle.Radians()))).Add(center).Normalize()}
+}

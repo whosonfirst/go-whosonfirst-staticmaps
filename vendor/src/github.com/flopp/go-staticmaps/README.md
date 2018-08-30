@@ -1,5 +1,6 @@
 [![GoDoc](https://godoc.org/github.com/flopp/go-staticmaps?status.svg)](https://godoc.org/github.com/flopp/go-staticmaps)
 [![Go Report Card](https://goreportcard.com/badge/github.com/flopp/go-staticmaps)](https://goreportcard.com/report/flopp/go-staticmaps)
+[![Build Status](https://travis-ci.org/flopp/go-staticmaps.svg?branch=master)](https://travis-ci.org/flopp/go-staticmaps)
 [![License MIT](https://img.shields.io/badge/license-MIT-lightgrey.svg?style=flat)](https://github.com/flopp/go-staticmaps/)
 
 # go-staticmaps
@@ -45,7 +46,7 @@ import (
 func main() {
   ctx := sm.NewContext()
   ctx.SetSize(400, 300)
-  ctx.AddMarker(sm.NewMarker(s2.LatLngFromDegrees{52.514536, 13.350151}, color.RGBA{0xff, 0, 0, 0xff}, 16.0))
+  ctx.AddMarker(sm.NewMarker(s2.LatLngFromDegrees(52.514536, 13.350151), color.RGBA{0xff, 0, 0, 0xff}, 16.0))
 
   img, err := ctx.Render()
   if err != nil {
@@ -80,9 +81,13 @@ See [GoDoc](https://godoc.org/github.com/flopp/go-staticmaps) for a complete doc
                                Set the bounding box (NW_LATLNG = north-western point of the
                                bounding box, SW_LATLNG = southe-western point of the bounding
                                box)
+      --background=COLOR       Background color (default: transparent)
+      -u, --useragent=USERAGENT
+                               Overwrite the default HTTP user agent string
       -m, --marker=MARKER      Add a marker to the static map
       -p, --path=PATH          Add a path to the static map
       -a, --area=AREA          Add an area to the static map
+      -C, --circle=CIRCLE      Add a circle to the static map
 
     Help Options:
       -h, --help               Show this help message
@@ -90,6 +95,8 @@ See [GoDoc](https://godoc.org/github.com/flopp/go-staticmaps) for a complete doc
 ### General
 The command line interface tries to resemble [Google's Static Maps API](https://developers.google.com/maps/documentation/static-maps/intro).
 If neither `--bbox`, `--center`, nor `--zoom` are given, the map extent is determined from the specified markers, paths and areas.
+
+`--background` lets you specify a color used for map areas that are not covered by map tiles (areas north of 85°/south of -85°).
 
 ### Markers
 The `--marker` option defines one or more map markers of the same style. Use multiple `--marker` options to add markers of different styles.
@@ -130,6 +137,21 @@ The `--area` option defines a closed area on the map. Use multiple `--area` opti
 - `color:COLOR` - where `COLOR` is either of the form `0xRRGGBB`, `0xRRGGBBAA`, or one of `black`, `blue`, `brown`, `green`, `orange`, `purple`, `red`, `yellow`, `white` (default: `red`)
 - `weight:WEIGHT` - where `WEIGHT` is the line width in pixels (defaut: `5`)
 - `fill:COLOR` - where `COLOR` is either of the form `0xRRGGBB`, `0xRRGGBBAA`, or one of `black`, `blue`, `brown`, `green`, `orange`, `purple`, `red`, `yellow`, `white` (default: none)
+
+
+### Circles
+The `--circles` option defines one or more circles of the same style. Use multiple `--circle` options to add circles of different styles.
+
+    --circle CIRCLE_STYLES|LATLNG|LATLNG|...
+
+`LATLNG` is a comma separated pair of latitude and longitude, e.g. `52.5153,13.3564`.
+
+`CIRCLE_STYLES` consists of a set of style descriptors separated by the pipe character `|`:
+
+- `color:COLOR` - where `COLOR` is either of the form `0xRRGGBB`, `0xRRGGBBAA`, or one of `black`, `blue`, `brown`, `green`, `orange`, `purple`, `red`, `yellow`, `white` (default: `red`)
+- `fill:COLOR` - where `COLOR` is either of the form `0xRRGGBB`, `0xRRGGBBAA`, or one of `black`, `blue`, `brown`, `green`, `orange`, `purple`, `red`, `yellow`, `white` (default: no fill color)
+- `radius:RADIUS` - where `RADIUS` is te circle radius in meters (default: `100.0`)
+- `weight:WEIGHT` - where `WEIGHT` is the line width in pixels (defaut: `5`)
 
 
 ## Examples
@@ -214,6 +236,12 @@ Besides the go standard library, go-staticmaps uses
 - [wiless](https://github.com/wiless): suggested to add user definable *marker label colors*
 - [noki](https://github.com/Noki): suggested to add a user definable *bounding box*
 - [digitocero](https://github.com/digitocero): reported and fixed *type mismatch error*
+- [bcicen](https://github.com/bcicen): reported and fixed *syntax error in examples*
+- [pshevtsov](https://github.com/pshevtsov): fixed *drawing of empty attribution strings*
+- [Luzifer](https://github.com/Luzifer): added *overwritable user agent strings* to comply with the OSM tile usage policy 
+- [Jason Fox](https://github.com/jasonpfox): added `RenderWithBounds` function
+- [Alexander A. Kapralov](https://github.com/alnkapa): initial *circles* implementation
+- [tsukumaru](https://github.com/tsukumaru): added `NewArea` and `NewPath` functions
 
 ## License
 Copyright 2016, 2017 Florian Pigorsch & Contributors. All rights reserved.

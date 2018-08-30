@@ -4,17 +4,12 @@ import (
 	"bytes"
 	"flag"
 	"fmt"
-	"github.com/facebookgo/grace/gracehttp"
-	"github.com/whosonfirst/go-storagemaster"
-	"github.com/whosonfirst/go-storagemaster/provider"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
-	"github.com/whosonfirst/go-whosonfirst-uri"
+	_ "github.com/whosonfirst/go-whosonfirst-uri"
 	"image/png"
 	"log"
 	"net/http"
 	"os"
-	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -66,13 +61,6 @@ func (p *NamedSizes) ToMap() (map[string]CustomSize, error) {
 
 func main() {
 
-	whoami, err := user.Current()
-	default_creds := ""
-
-	if err == nil {
-		default_creds = fmt.Sprintf("shared:%s/.aws/credentials:default", whoami.HomeDir)
-	}
-
 	var sizes NamedSizes
 
 	flag.Var(&sizes, "size", "Zero or more custom {LABEL}={WIDTH}x{HEIGHT} parameters.")
@@ -80,6 +68,7 @@ func main() {
 	var host = flag.String("host", "localhost", "The hostname to listen for requests on")
 	var port = flag.Int("port", 8080, "The port number to listen for requests on")
 
+	/*
 	var cache = flag.Bool("cache", false, "Cache rendered maps")
 	var cache_provider = flag.String("cache-provider", "s3", "A valid cache provider. Valid options are: s3")
 
@@ -87,7 +76,8 @@ func main() {
 	var s3_bucket = flag.String("s3-bucket", "whosonfirst.mapzen.com", "A valid S3 bucket where cached files are stored.")
 	var s3_prefix = flag.String("s3-prefix", "static", "An optional subdirectory (prefix) where cached files are stored in S3.")
 	var s3_region = flag.String("s3-region", "us-east-1", "A valid AWS S3 region")
-
+	*/
+	
 	var height = flag.Int("height", 480, "The default height in pixels for rendered maps.")
 	var width = flag.Int("width", 640, "The default width in pixels for rendered maps.")
 	var root = flag.String("data-root", "https://whosonfirst.mapzen.com/data", "Where to look for Who's On First source data.")
@@ -101,29 +91,6 @@ func main() {
 	}
 
 	sz_map["default"] = CustomSize{Width: *width, Height: *height}
-
-	var storage storagemaster.Provider
-
-	if *cache {
-
-		if *cache_provider == "s3" {
-
-			cfg := provider.S3Config{
-				Bucket:      *s3_bucket,
-				Prefix:      *s3_prefix,
-				Region:      *s3_region,
-				Credentials: *s3_credentials,
-			}
-
-			storage, err = provider.NewS3Provider(cfg)
-
-			if err != nil {
-				log.Fatal(err)
-			}
-		} else {
-			log.Fatal("Invalid or unknown cache provider")
-		}
-	}
 
 	handler := func(rsp http.ResponseWriter, req *http.Request) {
 
@@ -183,46 +150,6 @@ func main() {
 			return
 		}
 
-		if *cache {
-
-			go func() {
-
-				root, err := uri.Id2Path(wofid)
-
-				if err != nil {
-					log.Println(err)
-					return
-				}
-
-				fname := fmt.Sprintf("%d.png", wofid)
-
-				if sz_label != "default" {
-					fname = fmt.Sprintf("%d-%s.png", wofid, sz_label)
-				}
-
-				rel_path := filepath.Join(root, fname)
-
-				extras, err := storagemaster.NewStoragemasterExtras()
-
-				if err != nil {
-					msg := fmt.Sprintf("failed to PUT %s because %s\n", rel_path, err)
-					log.Println(msg)
-					return
-				}
-
-				extras.Set("acl", "public-read")
-				extras.Set("content-type", "image/png")
-
-				err = storage.Put(rel_path, buffer.Bytes(), extras)
-
-				if err != nil {
-					msg := fmt.Sprintf("failed to PUT %s because %s\n", rel_path, err)
-					log.Println(msg)
-					return
-				}
-			}()
-		}
-
 		rsp.Header().Set("Content-Type", "image/png")
 		rsp.Header().Set("Content-Length", strconv.Itoa(len(buffer.Bytes())))
 
@@ -241,7 +168,7 @@ func main() {
 	mux.HandleFunc("/", handler)
 	mux.HandleFunc("/ping", ping)	
 
-	err = gracehttp.Serve(&http.Server{Addr: endpoint, Handler: mux})
+	err = http.ListenAndServe(endpoint, mux)	
 
 	if err != nil {
 		log.Fatal(err)

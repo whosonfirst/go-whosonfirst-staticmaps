@@ -1,25 +1,22 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
 import (
 	"math"
 	"reflect"
-	"sort"
 	"testing"
 
 	"github.com/golang/geo/r2"
@@ -33,6 +30,16 @@ func TestCellIDFromFace(t *testing.T) {
 		if fpl != f {
 			t.Errorf("CellIDFromFacePosLevel(%d, 0, 0) != CellIDFromFace(%d), got %v wanted %v", face, face, f, fpl)
 		}
+	}
+}
+
+func TestCellIDSentinelRangeMinMax(t *testing.T) {
+	s := SentinelCellID
+	if got := s.RangeMin(); s != got {
+		t.Errorf("sentinel.RangeMin() = %v, want %v", got, s)
+	}
+	if got := s.RangeMax(); s != got {
+		t.Errorf("sentinel.RangeMax() = %v, want %v", got, s)
 	}
 }
 
@@ -204,17 +211,11 @@ func TestCellIDEdgeNeighbors(t *testing.T) {
 	}
 }
 
-type byCellID []CellID
-
-func (v byCellID) Len() int           { return len(v) }
-func (v byCellID) Swap(i, j int)      { v[i], v[j] = v[j], v[i] }
-func (v byCellID) Less(i, j int) bool { return uint64(v[i]) < uint64(v[j]) }
-
 func TestCellIDVertexNeighbors(t *testing.T) {
 	// Check the vertex neighbors of the center of face 2 at level 5.
 	id := cellIDFromPoint(PointFromCoords(0, 0, 1))
 	neighbors := id.VertexNeighbors(5)
-	sort.Sort(byCellID(neighbors))
+	sortCellIDs(neighbors)
 
 	for n, nbr := range neighbors {
 		i, j := 1<<29, 1<<29
@@ -234,7 +235,7 @@ func TestCellIDVertexNeighbors(t *testing.T) {
 	// Check the vertex neighbors of the corner of faces 0, 4, and 5.
 	id = CellIDFromFacePosLevel(0, 0, maxLevel)
 	neighbors = id.VertexNeighbors(0)
-	sort.Sort(byCellID(neighbors))
+	sortCellIDs(neighbors)
 	if len(neighbors) != 3 {
 		t.Errorf("len(CellID(%d).VertexNeighbors()) = %d, wanted %d", id, len(neighbors), 3)
 	}
@@ -271,7 +272,7 @@ func TestCellIDAllNeighbors(t *testing.T) {
 
 		// testAllNeighbors computes approximately 2**(2*(diff+1)) cell ids,
 		// so it's not reasonable to use large values of diff.
-		maxDiff := min(6, maxLevel-id.Level()-1)
+		maxDiff := minInt(6, maxLevel-id.Level()-1)
 		level := id.Level() + randomUniformInt(maxDiff)
 
 		// We compute AllNeighbors, and then add in all the children of id
@@ -287,8 +288,8 @@ func TestCellIDAllNeighbors(t *testing.T) {
 		}
 
 		// Sort the results and eliminate duplicates.
-		sort.Sort(byCellID(all))
-		sort.Sort(byCellID(want))
+		sortCellIDs(all)
+		sortCellIDs(want)
 		all = dedupCellIDs(all)
 		want = dedupCellIDs(want)
 
@@ -358,6 +359,19 @@ func TestCellIDFromTokensErrorCases(t *testing.T) {
 	if noneID != CellID(0) {
 		t.Errorf("CellIDFromToken(%q) = %x, want 0", noneToken, uint64(noneID))
 	}
+
+	// Sentinel is invalid.
+	sentinel := SentinelCellID.ToToken()
+	if got, want := CellIDFromToken(sentinel), SentinelCellID; got != want {
+		t.Errorf("CellIDFromToken(%v) = %v, want %v", sentinel, got, want)
+	}
+
+	// Check an invalid face.
+	face7 := CellIDFromFace(7).ToToken()
+	if got, want := CellIDFromToken(face7), CellIDFromFace(7); got != want {
+		t.Errorf("CellIDFromToken(%v) = %v, want %v", face7, got, want)
+	}
+
 	tests := []string{
 		"876b e99",
 		"876bee99\n",
@@ -542,7 +556,7 @@ func TestCellIDCommonAncestorLevel(t *testing.T) {
 	}
 	for _, test := range tests {
 		if got, ok := test.ci.CommonAncestorLevel(test.other); ok != test.wantOk || got != test.want {
-			t.Errorf("CellID(%v).VertexNeighbors(%v) = %d, %t; want %d, %t", test.ci, test.other, got, ok, test.want, test.wantOk)
+			t.Errorf("CellID(%v).CommonAncestorLevel(%v) = %d, %t; want %d, %t", test.ci, test.other, got, ok, test.want, test.wantOk)
 		}
 	}
 }
@@ -587,58 +601,6 @@ func TestCellIDDistanceToBegin(t *testing.T) {
 	id := CellIDFromFacePosLevel(3, 0x12345678, maxLevel-4)
 	if got := CellIDFromFace(0).ChildBeginAtLevel(id.Level()).Advance(id.distanceFromBegin()); got != id {
 		t.Errorf("advancing from the beginning by the distance of a cell should return us to that cell. got %v, want %v", got, id)
-	}
-}
-
-func TestFindMSBSetNonZero64(t *testing.T) {
-	testOne := uint64(0x8000000000000000)
-	testAll := uint64(0xFFFFFFFFFFFFFFFF)
-	testSome := uint64(0xFEDCBA9876543210)
-	for i := 63; i >= 0; i-- {
-		if got := findMSBSetNonZero64(testOne); got != i {
-			t.Errorf("findMSBSetNonZero64(%x) = %d, want = %d", testOne, got, i)
-		}
-		if got := findMSBSetNonZero64(testAll); got != i {
-			t.Errorf("findMSBSetNonZero64(%x) = %d, want = %d", testAll, got, i)
-		}
-		if got := findMSBSetNonZero64(testSome); got != i {
-			t.Errorf("findMSBSetNonZero64(%x) = %d, want = %d", testSome, got, i)
-		}
-		testOne >>= 1
-		testAll >>= 1
-		testSome >>= 1
-	}
-
-	if got := findMSBSetNonZero64(1); got != 0 {
-		t.Errorf("findMSBSetNonZero64(1) = %v, want 0", got)
-	}
-
-	if got := findMSBSetNonZero64(0); got != 0 {
-		t.Errorf("findMSBSetNonZero64(0) = %v, want 0", got)
-	}
-}
-
-func TestFindLSBSetNonZero64(t *testing.T) {
-	testOne := uint64(0x0000000000000001)
-	testAll := uint64(0xFFFFFFFFFFFFFFFF)
-	testSome := uint64(0x0123456789ABCDEF)
-	for i := 0; i < 64; i++ {
-		if got := findLSBSetNonZero64(testOne); got != i {
-			t.Errorf("findLSBSetNonZero64(%x) = %d, want = %d", testOne, got, i)
-		}
-		if got := findLSBSetNonZero64(testAll); got != i {
-			t.Errorf("findLSBSetNonZero64(%x) = %d, want = %d", testAll, got, i)
-		}
-		if got := findLSBSetNonZero64(testSome); got != i {
-			t.Errorf("findLSBSetNonZero64(%x) = %d, want = %d", testSome, got, i)
-		}
-		testOne <<= 1
-		testAll <<= 1
-		testSome <<= 1
-	}
-
-	if got := findLSBSetNonZero64(0); got != 0 {
-		t.Errorf("findLSBSetNonZero64(0) = %v, want 0", got)
 	}
 }
 
@@ -789,10 +751,10 @@ func TestCellIDFaceSiTi(t *testing.T) {
 	id := CellIDFromFacePosLevel(3, 0x12345678, maxLevel)
 	// Check that the (si, ti) coordinates of the center end in a
 	// 1 followed by (30 - level) 0's.
-	for level := uint64(0); level <= maxLevel; level++ {
-		l := maxLevel - int(level)
-		want := 1 << level
-		mask := 1<<(level+1) - 1
+	for level := 0; level <= maxLevel; level++ {
+		l := maxLevel - level
+		want := uint32(1) << uint(level)
+		mask := uint32(1)<<(uint(level)+1) - 1
 
 		_, si, ti := id.Parent(l).faceSiTi()
 		if want != si&mask {

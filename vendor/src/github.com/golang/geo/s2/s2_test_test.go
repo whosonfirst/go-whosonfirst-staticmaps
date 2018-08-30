@@ -1,27 +1,24 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
 import (
-	"reflect"
+	"fmt"
+	"math"
 	"testing"
 
-	"github.com/golang/geo/r1"
-	"github.com/golang/geo/r3"
 	"github.com/golang/geo/s1"
 )
 
@@ -44,153 +41,213 @@ func TestKmToAngle(t *testing.T) {
 			t.Errorf("kmToAngle(%f) = %0.20f, want %0.20f", test.have, got, test.want)
 		}
 	}
-
 }
 
-func TestParsePoint(t *testing.T) {
-	tests := []struct {
-		have string
-		want Point
-	}{
-		{"0:0", Point{r3.Vector{1, 0, 0}}},
-		{"90:0", Point{r3.Vector{6.123233995736757e-17, 0, 1}}},
-		{"91:0", Point{r3.Vector{-0.017452406437283473, -0, 0.9998476951563913}}},
-		{"179.99:0", Point{r3.Vector{-0.9999999847691292, -0, 0.00017453292431344843}}},
-		{"180:0", Point{r3.Vector{-1, -0, 1.2246467991473515e-16}}},
-		{"181.0:0", Point{r3.Vector{-0.9998476951563913, -0, -0.017452406437283637}}},
-		{"-45:0", Point{r3.Vector{0.7071067811865476, 0, -0.7071067811865475}}},
-		{"0:0.01", Point{r3.Vector{0.9999999847691292, 0.00017453292431333684, 0}}},
-		{"0:30", Point{r3.Vector{0.8660254037844387, 0.49999999999999994, 0}}},
-		{"0:45", Point{r3.Vector{0.7071067811865476, 0.7071067811865475, 0}}},
-		{"0:90", Point{r3.Vector{6.123233995736757e-17, 1, 0}}},
-		{"30:30", Point{r3.Vector{0.7500000000000001, 0.4330127018922193, 0.49999999999999994}}},
-		{"-30:30", Point{r3.Vector{0.7500000000000001, 0.4330127018922193, -0.49999999999999994}}},
-		{"180:90", Point{r3.Vector{-6.123233995736757e-17, -1, 1.2246467991473515e-16}}},
-		{"37.4210:-122.0866, 37.4231:-122.0819", Point{r3.Vector{-0.4218751185559026, -0.6728760966593905, 0.6076669670863027}}},
+func numVerticesAtLevel(level int) int {
+	// Sanity / overflow check
+	if level < 0 || level > 14 {
+		panic(fmt.Sprintf("level %d out of range for fractal tests", level))
 	}
+	return 3 * (1 << (2 * uint(level))) // 3*(4**level)
+}
+
+func TestTestingFractal(t *testing.T) {
+	tests := []struct {
+		label     string
+		minLevel  int
+		maxLevel  int
+		dimension float64
+	}{
+
+		{
+			label:     "TriangleFractal",
+			minLevel:  7,
+			maxLevel:  7,
+			dimension: 1.0,
+		},
+		{
+			label:     "TriangleMultiFractal",
+			minLevel:  2,
+			maxLevel:  6,
+			dimension: 1.0,
+		},
+		{
+			label:     "SpaceFillingFractal",
+			minLevel:  4,
+			maxLevel:  4,
+			dimension: 1.999,
+		},
+		{
+			label:     "KochCurveFractal",
+			minLevel:  7,
+			maxLevel:  7,
+			dimension: math.Log(4) / math.Log(3),
+		},
+		{
+			label:     "KochCurveMultiFractal",
+			minLevel:  4,
+			maxLevel:  8,
+			dimension: math.Log(4) / math.Log(3),
+		},
+		{
+			label:     "CesaroFractal",
+			minLevel:  7,
+			maxLevel:  7,
+			dimension: 1.8,
+		},
+		{
+			label:     "CesaroMultiFractal",
+			minLevel:  3,
+			maxLevel:  6,
+			dimension: 1.8,
+		},
+	}
+
+	// Constructs a fractal and then computes various metrics (number of
+	// vertices, total length, minimum and maximum radius) and verifies that
+	// they are within expected tolerances. Essentially this
+	// directly verifies that the shape constructed *is* a fractal, i.e. the
+	// total length of the curve increases exponentially with the level, while
+	// the area bounded by the fractal is more or less constant.
+
+	// The radius needs to be fairly small to avoid spherical distortions.
+	const nominalRadius = 0.001 // radians, or about 6km
+	const distortionError = 1e-5
+
 	for _, test := range tests {
-		if got := parsePoint(test.have); !got.ApproxEqual(test.want) {
-			t.Errorf("parsePoint(%s) = %v, want %v", test.have, got, test.want)
+		f := newFractal()
+		f.minLevel = test.minLevel
+		f.maxLevel = test.maxLevel
+		f.dimension = test.dimension
+
+		frame := randomFrame()
+		loop := f.makeLoop(frame, nominalRadius)
+
+		if err := loop.Validate(); err != nil {
+			t.Errorf("%s. fractal loop was not valid: %v", test.label, err)
 		}
-	}
-}
 
-func TestParseRect(t *testing.T) {
-	tests := []struct {
-		have string
-		want Rect
-	}{
-		{"0:0", Rect{}},
-		{
-			"1:1",
-			Rect{
-				r1.Interval{float64(s1.Degree), float64(s1.Degree)},
-				s1.Interval{float64(s1.Degree), float64(s1.Degree)},
-			},
-		},
-		{
-			"1:1, 2:2, 3:3",
-			Rect{
-				r1.Interval{float64(s1.Degree), 3 * float64(s1.Degree)},
-				s1.Interval{float64(s1.Degree), 3 * float64(s1.Degree)},
-			},
-		},
-		{
-			"-90:-180, 90:180",
-			Rect{
-				r1.Interval{-90 * float64(s1.Degree), 90 * float64(s1.Degree)},
-				s1.Interval{180 * float64(s1.Degree), -180 * float64(s1.Degree)},
-			},
-		},
-		{
-			"-89.99:0, 89.99:179.99",
-			Rect{
-				r1.Interval{-89.99 * float64(s1.Degree), 89.99 * float64(s1.Degree)},
-				s1.Interval{0, 179.99 * float64(s1.Degree)},
-			},
-		},
-		{
-			"-89.99:-179.99, 89.99:179.99",
-			Rect{
-				r1.Interval{-89.99 * float64(s1.Degree), 89.99 * float64(s1.Degree)},
-				s1.Interval{179.99 * float64(s1.Degree), -179.99 * float64(s1.Degree)},
-			},
-		},
-		{
-			"37.4210:-122.0866, 37.4231:-122.0819",
-			Rect{
-				r1.Interval{float64(s1.Degree * 37.4210), float64(s1.Degree * 37.4231)},
-				s1.Interval{float64(s1.Degree * -122.0866), float64(s1.Degree * -122.0819)},
-			},
-		},
-		{
-			"-876.54:-654.43, 963.84:2468.35",
-			Rect{
-				r1.Interval{-876.54 * float64(s1.Degree), -876.54 * float64(s1.Degree)},
-				s1.Interval{-654.43 * float64(s1.Degree), -654.43 * float64(s1.Degree)},
-			},
-		},
-	}
-	for _, test := range tests {
-		if got := parseRect(test.have); got != test.want {
-			t.Errorf("parseRect(%s) = %v, want %v", test.have, got, test.want)
+		// If minLevel and maxLevel are not equal, then the number of vertices and
+		// the total length of the curve are subject to random variation.  Here we
+		// compute an approximation of the standard deviation relative to the mean,
+		// noting that most of the variance is due to the random choices about
+		// whether to stop subdividing at minLevel or not. (The random choices
+		// at higher levels contribute progressively less and less to the variance.)
+		// The relativeError below corresponds to *one* standard deviation of
+		// error; it can be increased to a higher multiple if necessary.
+		//
+		// Details: Let n=3*(4**minLevel) and k=(maxLevel-minLevel+1). Each of
+		// the n edges at minLevel stops subdividing at that level with
+		// probability (1/k). This gives a binomial distribution with mean u=(n/k)
+		// and standard deviation s=sqrt((n/k)(1-1/k)). The relative error (s/u)
+		// can be simplified to sqrt((k-1)/n).
+		numLevels := test.maxLevel - test.minLevel + 1
+		minVertices := numVerticesAtLevel(test.minLevel)
+		relativeError := math.Sqrt((float64(numLevels) - 1.0) / float64(minVertices))
+
+		// expansionFactor is the total fractal length at level n+1 divided by
+		// the total fractal length at level n.
+		expansionFactor := math.Pow(4, 1-1/test.dimension)
+		expectedNumVertices := 0.0
+		expectedLengthSum := 0.0
+
+		// trianglePerim is the perimeter of the original equilateral triangle
+		// before any subdivision occurs.
+		trianglePerim := 3 * math.Sqrt(3) * math.Tan(nominalRadius)
+		minLengthSum := trianglePerim * math.Pow(expansionFactor, float64(test.minLevel))
+		for level := test.minLevel; level <= test.maxLevel; level++ {
+			expectedNumVertices += float64(numVerticesAtLevel(level))
+			expectedLengthSum += math.Pow(expansionFactor, float64(level))
 		}
-	}
-}
+		expectedNumVertices /= float64(numLevels)
+		expectedLengthSum *= trianglePerim / float64(numLevels)
 
-func TestParseLatLngs(t *testing.T) {
-	tests := []struct {
-		have string
-		want []LatLng
-	}{
-		{"0:0", []LatLng{{0, 0}}},
-		{
-			"37.4210:-122.0866, 37.4231:-122.0819",
-			[]LatLng{
-				{s1.Degree * 37.4210, s1.Degree * -122.0866},
-				{s1.Degree * 37.4231, s1.Degree * -122.0819},
-			},
-		},
-	}
-	for _, test := range tests {
-		got := parseLatLngs(test.have)
-		if !reflect.DeepEqual(got, test.want) {
-			t.Errorf("parseLatLngs(%s) = %v, want %v", test.have, got, test.want)
+		if got, want := loop.NumVertices(), minVertices; got < want {
+			t.Errorf("%s. number of vertices = %d, should be more than %d", test.label, got, want)
 		}
-	}
-}
+		if got, want := loop.NumVertices(), numVerticesAtLevel(test.maxLevel); got > want {
+			t.Errorf("%s. number of vertices = %d, should be less than %d", test.label, got, want)
+		}
+		if got, want := float64(expectedNumVertices), float64(loop.NumVertices()); !float64Near(got, want, relativeError*(expectedNumVertices-float64(minVertices))) {
+			t.Errorf("%s. expected number of vertices %v should be close to %v, difference: %v", test.label, got, want, (got - want))
+		}
 
-func TestParsePoints(t *testing.T) {
-	tests := []struct {
-		have string
-		want []Point
-	}{
-		{"0:0", []Point{{r3.Vector{1, 0, 0}}}},
-		{"      0:0,    ", []Point{{r3.Vector{1, 0, 0}}}},
-		{
-			"90:0,-90:0",
-			[]Point{
-				{r3.Vector{6.123233995736757e-17, 0, 1}},
-				{r3.Vector{6.123233995736757e-17, 0, -1}},
-			},
-		},
-		{
-			"90:0, 0:90, -90:0, 0:-90",
-			[]Point{
-				{r3.Vector{6.123233995736757e-17, 0, 1}},
-				{r3.Vector{6.123233995736757e-17, 1, 0}},
-				{r3.Vector{6.123233995736757e-17, 0, -1}},
-				{r3.Vector{6.123233995736757e-17, -1, 0}},
-			},
-		},
-	}
+		center := frame.col(2)
+		minRadius := 2 * math.Pi
+		maxRadius := 0.0
+		lengthSum := s1.Angle(0.0)
+		for i := 0; i < loop.NumVertices(); i++ {
+			// Measure the radius of the fractal in the tangent plane at center.
+			r := math.Tan(center.Angle(loop.Vertex(i).Vector).Radians())
+			minRadius = math.Min(minRadius, r)
+			maxRadius = math.Max(maxRadius, r)
+			lengthSum += loop.Vertex(i).Angle(loop.Vertex(i + 1).Vector)
+		}
 
-	for _, test := range tests {
-		got := parsePoints(test.have)
-		for i := range got { // assume we at least get the same number of points
-			if !got[i].ApproxEqual(test.want[i]) {
-				t.Errorf("parsePoints(%s): [%d]: got %v, want %v", test.have, i, got[i], test.want[i])
+		// vertexError is an approximate bound on the error when computing vertex
+		// positions of the fractal (due to fromFrame, trig calculations, etc).
+		const vertexError = 1e-14
+
+		// Although minRadiusFactor() is only a lower bound in general, it happens
+		// to be exact (to within numerical errors) unless the dimension is in the
+		// range (1.0, 1.09).
+		if test.dimension == 1.0 || test.dimension >= 1.09 {
+			// Expect the min radius to match very closely.
+			if got, want := f.minRadiusFactor()*nominalRadius, minRadius; !float64Near(got, want, vertexError) {
+				t.Errorf("%s. minRadiusFactor()*nominalRadius = %v, want ~%v", test.label, got, want)
+			}
+		} else {
+			// Expect the min radius to satisfy the lower bound.
+			if got, want := f.minRadiusFactor()*nominalRadius-vertexError, minRadius; got < want {
+				t.Errorf("%s. minRadiusFactor()*nominalRadius = %v, want >= %v", test.label, got, want)
 			}
 		}
+		// maxRadiusFactor() is exact (modulo errors) for all dimensions.
+		if got, want := f.maxRadiusFactor()*nominalRadius, maxRadius; !float64Near(got, want, vertexError) {
+			t.Errorf("%s. maxRadiusFactor()*nominalRadius = %v, want >= %v", test.label, got, want)
+		}
+
+		if got, want := lengthSum.Radians(), expectedLengthSum; !float64Near(got, want, relativeError*(expectedLengthSum-minLengthSum)+distortionError*lengthSum.Radians()) {
+			t.Errorf("%s. expected perimieter length = %v, want ~%v", test.label, got, want)
+		}
 	}
 }
+
+// TestChordAngleMaxPointError is located in here to work around circular
+// import issues. This s1 test needs s2.Points which wont work with our
+// packages. The test is in this file since while it uses Points, it's not
+// part of Points methods so it shouldn't be in s2point_test.
+func TestChordAngleMaxPointError(t *testing.T) {
+	// Check that the error bound returned by s1.MaxPointError() is
+	// large enough.
+	const iters = 100000
+	for iter := 0; iter < iters; iter++ {
+		x := randomPoint()
+		y := randomPoint()
+		if oneIn(10) {
+			// Occasionally test a point pair that is nearly identical or antipodal.
+			r := s1.Angle(1e-15 * randomFloat64())
+			y = InterpolateAtDistance(r, x, y)
+			if oneIn(2) {
+				y = Point{y.Mul(-1)}
+			}
+		}
+		dist := ChordAngleBetweenPoints(x, y)
+		err := dist.MaxPointError()
+		if got, want := CompareDistance(x, y, dist.Expanded(err)), 0; got > 0 {
+			t.Errorf("CompareDistance(%v, %v, %v.Expanded(%v)) = %v, want <= %v", x, y, dist, err, got, want)
+		}
+		if got, want := CompareDistance(x, y, dist.Expanded(-err)), 0; got < 0 {
+			t.Errorf("CompareDistance(%v, %v, %v.Expanded(-%v)) = %v, want >= %v", x, y, dist, err, got, want)
+		}
+	}
+}
+
+// TODO(roberts): Remaining tests
+// TriangleFractal
+// TriangleMultiFractal
+// SpaceFillingFractal
+// KochCurveFractal
+// KochCurveMultiFractal
+// CesaroFractal
+// CesaroMultiFractal

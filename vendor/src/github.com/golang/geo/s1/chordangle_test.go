@@ -1,18 +1,16 @@
-/*
-Copyright 2015 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2015 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s1
 
@@ -41,7 +39,7 @@ func TestChordAngleBasics(t *testing.T) {
 		{StraightChordAngle, InfChordAngle(), true, false},
 
 		{InfChordAngle(), InfChordAngle(), false, true},
-		{InfChordAngle(), InfChordAngle(), false, true},
+		{InfChordAngle(), StraightChordAngle, false, false},
 	}
 
 	for _, test := range tests {
@@ -52,6 +50,30 @@ func TestChordAngleBasics(t *testing.T) {
 			t.Errorf("%v should be equal to %v", test.a, test.b)
 		}
 	}
+}
+
+func TestChordAngleAngleEquality(t *testing.T) {
+	var zeroAngle Angle
+	var zeroChord ChordAngle
+
+	if InfAngle() != InfChordAngle().Angle() {
+		t.Errorf("Infinite ChordAngle to Angle = %v, want %v", InfChordAngle().Angle(), InfAngle())
+	}
+
+	oneEighty := 180 * Degree
+	if oneEighty != StraightChordAngle.Angle() {
+		t.Errorf("Right ChordAngle to degrees = %v, want %v", StraightChordAngle.Angle(), oneEighty)
+	}
+
+	if zeroAngle != zeroChord.Angle() {
+		t.Errorf("Zero ChordAngle to Angle = %v, want %v", zeroChord.Angle(), zeroAngle)
+	}
+
+	d := RightChordAngle.Angle().Degrees()
+	if !float64Near(90, d, 1e-13) {
+		t.Errorf("Right ChordAngle to degrees = %v, want %v", d, 90)
+	}
+
 }
 
 func TestChordAngleIsFunctions(t *testing.T) {
@@ -65,7 +87,6 @@ func TestChordAngleIsFunctions(t *testing.T) {
 	}{
 		{zeroChord, false, true, false, false},
 		{NegativeChordAngle, true, false, false, true},
-		{zeroChord, false, true, false, false},
 		{StraightChordAngle, false, false, false, false},
 		{InfChordAngle(), false, false, true, true},
 	}
@@ -83,6 +104,44 @@ func TestChordAngleIsFunctions(t *testing.T) {
 		if got := test.have.isSpecial(); got != test.isSpecial {
 			t.Errorf("%v.isSpecial() = %t, want %t", test.have, got, test.isSpecial)
 		}
+	}
+}
+
+func TestChordAngleSuccessor(t *testing.T) {
+	if got, want := NegativeChordAngle.Successor(), ChordAngle(0.0); got != want {
+		t.Errorf("NegativeChordAngle.Successor() = %v, want %v", got, want)
+	}
+	if got, want := StraightChordAngle.Successor(), InfChordAngle(); got != want {
+		t.Errorf("StraightChordAngle.Successor() = %v, want %v", got, want)
+	}
+	if got, want := InfChordAngle().Successor(), InfChordAngle(); got != want {
+		t.Errorf("InfChordAngle.Successor() = %v, want %v", got, want)
+	}
+	x := NegativeChordAngle
+	for i := 0; i < 10; i++ {
+		if x >= x.Successor() {
+			t.Errorf("%d. %0.24f >= %0.24f.Successor() = %0.24f, want <", i, x, x, x.Successor())
+		}
+		x = x.Successor()
+	}
+}
+
+func TestChordAnglePredecessor(t *testing.T) {
+	if got, want := InfChordAngle().Predecessor(), StraightChordAngle; got != want {
+		t.Errorf("InfChordAngle.Predecessor() = %v, want %v", got, want)
+	}
+	if got, want := (ChordAngle(0)).Predecessor(), NegativeChordAngle; got != want {
+		t.Errorf("Zero ChordAngle.Predecessor() = %v, want %v", got, want)
+	}
+	if got, want := NegativeChordAngle.Predecessor(), NegativeChordAngle; got != want {
+		t.Errorf("NegativeChordAngle.Predecessor() = %v, want %v", got, want)
+	}
+	x := InfChordAngle()
+	for i := 0; i < 10; i++ {
+		if x <= x.Predecessor() {
+			t.Errorf("%v <= %v.Predecessor() = %v, want <", x, x, x.Predecessor())
+		}
+		x = x.Predecessor()
 	}
 }
 
@@ -174,7 +233,7 @@ func TestChordAngleTrigonometry(t *testing.T) {
 		// Since tan(x) is unbounded near pi/4, we map the result back to an
 		// angle before comparing. The assertion is that the result is equal to
 		// the tangent of a nearby angle.
-		if !float64Near(math.Atan(math.Tan(radians)), math.Atan(angle.Tan()), 1e-14) {
+		if !float64Near(math.Atan(math.Tan(radians)), math.Atan(angle.Tan()), epsilon) {
 			t.Errorf("(%d/%d)*π. %v.Tan() = %v, want %v", iter, iters, angle, angle.Tan(), math.Tan(radians))
 		}
 	}

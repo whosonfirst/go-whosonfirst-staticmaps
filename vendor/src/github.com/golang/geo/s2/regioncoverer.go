@@ -1,18 +1,16 @@
-/*
-Copyright 2015 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2015 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
@@ -34,7 +32,7 @@ import (
 //
 // For covering, only cells where (level - MinLevel) is a multiple of LevelMod will be used.
 // This effectively allows the branching factor of the S2 CellID hierarchy to be increased.
-// Currently the only parameter values allowed are 0/1, 2, or 3, corresponding to
+// Currently the only parameter values allowed are 1, 2, or 3, corresponding to
 // branching factors of 4, 16, and 64 respectively.
 //
 // Note the following:
@@ -97,20 +95,6 @@ type candidate struct {
 	numChildren int          // Number of children that intersect the region.
 	children    []*candidate // Actual size may be 0, 4, 16, or 64 elements.
 	priority    int          // Priority of the candiate.
-}
-
-func min(x, y int) int {
-	if x < y {
-		return x
-	}
-	return y
-}
-
-func max(x, y int) int {
-	if x > y {
-		return x
-	}
-	return y
 }
 
 type priorityQueue []*candidate
@@ -194,6 +178,10 @@ func (c *coverer) expandChildren(cand *candidate, cell Cell, numLevels int) int 
 // otherwise expands its children and inserts it into the priority queue.
 // Passing an argument of nil does nothing.
 func (c *coverer) addCandidate(cand *candidate) {
+	if cand == nil {
+		return
+	}
+
 	if cand.terminal {
 		c.result = append(c.result, cand.cell.id)
 		return
@@ -269,14 +257,12 @@ func (c *coverer) adjustCellLevels(cells *CellUnion) {
 // initialCandidates computes a set of initial candidates that cover the given region.
 func (c *coverer) initialCandidates() {
 	// Optimization: start with a small (usually 4 cell) covering of the region's bounding cap.
-	temp := &RegionCoverer{MaxLevel: c.maxLevel, LevelMod: 1, MaxCells: min(4, c.maxCells)}
+	temp := &RegionCoverer{MaxLevel: c.maxLevel, LevelMod: 1, MaxCells: minInt(4, c.maxCells)}
 
-	cells := temp.FastCovering(c.region.CapBound())
+	cells := temp.FastCovering(c.region)
 	c.adjustCellLevels(&cells)
 	for _, ci := range cells {
-		if cand := c.newCandidate(CellFromCellID(ci)); cand != nil {
-			c.addCandidate(cand)
-		}
+		c.addCandidate(c.newCandidate(CellFromCellID(ci)))
 	}
 }
 
@@ -307,7 +293,7 @@ func (c *coverer) coveringInternal(region Region) {
 		// For exterior covering we cannot do this, because result has to cover the
 		// whole region, so all children have to be used.
 		// candidate.numChildren == 1 case takes care of the situation when we
-		// already have more then MaxCells in result (minLevel is too high).
+		// already have more than MaxCells in result (minLevel is too high).
 		// Subdividing of the candidate with one child does no harm in this case.
 		if c.interiorCovering || int(cand.cell.level) < c.minLevel || cand.numChildren == 1 || len(c.result)+c.pq.Len()+cand.numChildren <= c.maxCells {
 			for _, child := range cand.children {
@@ -327,9 +313,9 @@ func (c *coverer) coveringInternal(region Region) {
 // newCoverer returns an instance of coverer.
 func (rc *RegionCoverer) newCoverer() *coverer {
 	return &coverer{
-		minLevel: max(0, min(maxLevel, rc.MinLevel)),
-		maxLevel: max(0, min(maxLevel, rc.MaxLevel)),
-		levelMod: max(1, min(3, rc.LevelMod)),
+		minLevel: maxInt(0, minInt(maxLevel, rc.MinLevel)),
+		maxLevel: maxInt(0, minInt(maxLevel, rc.MaxLevel)),
+		levelMod: maxInt(1, minInt(3, rc.LevelMod)),
 		maxCells: rc.MaxCells,
 	}
 }
@@ -337,14 +323,14 @@ func (rc *RegionCoverer) newCoverer() *coverer {
 // Covering returns a CellUnion that covers the given region and satisfies the various restrictions.
 func (rc *RegionCoverer) Covering(region Region) CellUnion {
 	covering := rc.CellUnion(region)
-	covering.Denormalize(max(0, min(maxLevel, rc.MinLevel)), max(1, min(3, rc.LevelMod)))
+	covering.Denormalize(maxInt(0, minInt(maxLevel, rc.MinLevel)), maxInt(1, minInt(3, rc.LevelMod)))
 	return covering
 }
 
 // InteriorCovering returns a CellUnion that is contained within the given region and satisfies the various restrictions.
 func (rc *RegionCoverer) InteriorCovering(region Region) CellUnion {
 	intCovering := rc.InteriorCellUnion(region)
-	intCovering.Denormalize(max(0, min(maxLevel, rc.MinLevel)), max(1, min(3, rc.LevelMod)))
+	intCovering.Denormalize(maxInt(0, minInt(maxLevel, rc.MinLevel)), maxInt(1, minInt(3, rc.LevelMod)))
 	return intCovering
 }
 
@@ -385,29 +371,11 @@ func (rc *RegionCoverer) InteriorCellUnion(region Region) CellUnion {
 //
 // This function is useful as a starting point for algorithms that
 // recursively subdivide cells.
-func (rc *RegionCoverer) FastCovering(cap Cap) CellUnion {
+func (rc *RegionCoverer) FastCovering(region Region) CellUnion {
 	c := rc.newCoverer()
-	cu := c.rawFastCovering(cap)
+	cu := CellUnion(region.CellUnionBound())
 	c.normalizeCovering(&cu)
 	return cu
-}
-
-// rawFastCovering computes a covering of the given cap. In general the covering consists of
-// at most 4 cells (except for very large caps, which may need up to 6 cells).
-// The output is not sorted.
-func (c *coverer) rawFastCovering(cap Cap) CellUnion {
-	var covering CellUnion
-	// Find the maximum level such that the cap contains at most one cell vertex
-	// and such that CellId.VertexNeighbors() can be called.
-	level := min(MinWidthMetric.MaxLevel(2*cap.Radius().Radians()), maxLevel-1)
-	if level == 0 {
-		for face := 0; face < 6; face++ {
-			covering = append(covering, CellIDFromFace(face))
-		}
-	} else {
-		covering = append(covering, cellIDFromPoint(cap.center).VertexNeighbors(level)...)
-	}
-	return covering
 }
 
 // normalizeCovering normalizes the "covering" so that it conforms to the current covering
@@ -423,7 +391,7 @@ func (c *coverer) normalizeCovering(covering *CellUnion) {
 	if c.maxLevel < maxLevel || c.levelMod > 1 {
 		for i, ci := range *covering {
 			level := ci.Level()
-			newLevel := c.adjustLevel(min(level, c.maxLevel))
+			newLevel := c.adjustLevel(minInt(level, c.maxLevel))
 			if newLevel != level {
 				(*covering)[i] = ci.Parent(newLevel)
 			}
@@ -462,4 +430,48 @@ func (c *coverer) normalizeCovering(covering *CellUnion) {
 	}
 }
 
-// BUG(akashagrawal): The differences from the C++ version FloodFill, SimpleCovering
+// SimpleRegionCovering returns a set of cells at the given level that cover
+// the connected region and a starting point on the boundary or inside the
+// region. The cells are returned in arbitrary order.
+//
+// Note that this method is not faster than the regular Covering
+// method for most region types, such as Cap or Polygon, and in fact it
+// can be much slower when the output consists of a large number of cells.
+// Currently it can be faster at generating coverings of long narrow regions
+// such as polylines, but this may change in the future.
+func SimpleRegionCovering(region Region, start Point, level int) []CellID {
+	return FloodFillRegionCovering(region, cellIDFromPoint(start).Parent(level))
+}
+
+// FloodFillRegionCovering returns all edge-connected cells at the same level as
+// the given CellID that intersect the given region, in arbitrary order.
+func FloodFillRegionCovering(region Region, start CellID) []CellID {
+	var output []CellID
+	all := map[CellID]bool{
+		start: true,
+	}
+	frontier := []CellID{start}
+	for len(frontier) > 0 {
+		id := frontier[len(frontier)-1]
+		frontier = frontier[:len(frontier)-1]
+		if !region.IntersectsCell(CellFromCellID(id)) {
+			continue
+		}
+		output = append(output, id)
+		for _, nbr := range id.EdgeNeighbors() {
+			if !all[nbr] {
+				all[nbr] = true
+				frontier = append(frontier, nbr)
+			}
+		}
+	}
+
+	return output
+}
+
+// TODO(roberts): The differences from the C++ version
+// finish up FastCovering to match C++
+// IsCanonical
+// CanonicalizeCovering
+// containsAllChildren
+// replaceCellsWithAncestor

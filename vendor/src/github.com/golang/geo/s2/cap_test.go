@@ -1,18 +1,16 @@
-/*
-Copyright 2014 Google Inc. All rights reserved.
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
-*/
+// Copyright 2014 Google Inc. All rights reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package s2
 
@@ -44,9 +42,18 @@ var (
 	yAxis = CapFromPoint(yAxisPt)
 	xComp = xAxis.Complement()
 
-	hemi    = CapFromCenterHeight(PointFromCoords(1, 0, 1), 1)
-	concave = CapFromCenterAngle(PointFromLatLng(LatLngFromDegrees(80, 10)), s1.Angle(150.0)*s1.Degree)
-	tiny    = CapFromCenterAngle(PointFromCoords(1, 2, 3), s1.Angle(tinyRad))
+	hemi = CapFromCenterHeight(PointFromCoords(1, 0, 1), 1)
+	tiny = CapFromCenterAngle(PointFromCoords(1, 2, 3), s1.Angle(tinyRad))
+
+	// A concave cap. Note that the error bounds for point containment tests
+	// increase with the cap angle, so we need to use a larger error bound
+	// here.
+	concaveCenter = PointFromLatLng(LatLngFromDegrees(80, 10))
+	concaveRadius = s1.ChordAngleFromAngle(150 * s1.Degree)
+	maxCapError   = concaveRadius.MaxPointError() + concaveRadius.MaxAngleError() + 3*dblEpsilon
+	concave       = CapFromCenterChordAngle(concaveCenter, concaveRadius)
+	concaveMin    = CapFromCenterChordAngle(concaveCenter, concaveRadius.Expanded(-maxCapError))
+	concaveMax    = CapFromCenterChordAngle(concaveCenter, concaveRadius.Expanded(maxCapError))
 )
 
 func TestCapBasicEmptyFullValid(t *testing.T) {
@@ -150,10 +157,6 @@ func TestCapContains(t *testing.T) {
 }
 
 func TestCapContainsPoint(t *testing.T) {
-	// We don't use the standard epsilon in this test due different compiler
-	// math optimizations that are permissible (FMA vs no FMA) that yield
-	// slightly different floating point results between gccgo and gc.
-	const epsilon = 1e-14
 	tangent := tiny.center.Cross(r3.Vector{3, 2, 1}).Normalize()
 	tests := []struct {
 		c    Cap
@@ -170,12 +173,10 @@ func TestCapContainsPoint(t *testing.T) {
 		{hemi, PointFromCoords(1, 0, -(1 - epsilon)), true},
 		{hemi, xAxisPt, true},
 		{hemi.Complement(), xAxisPt, false},
-		{concave, PointFromLatLng(LatLngFromDegrees(-70*(1-epsilon), 10)), true},
-		{concave, PointFromLatLng(LatLngFromDegrees(-70*(1+epsilon), 10)), false},
-		// This test case is the one where the floating point values end up
-		// different in the 15th place and beyond.
-		{concave, PointFromLatLng(LatLngFromDegrees(-50*(1-epsilon), -170)), true},
-		{concave, PointFromLatLng(LatLngFromDegrees(-50*(1+epsilon), -170)), false},
+		{concaveMax, PointFromLatLng(LatLngFromDegrees(-70*(1-epsilon), 10)), true},
+		{concaveMin, PointFromLatLng(LatLngFromDegrees(-70*(1+epsilon), 10)), false},
+		{concaveMax, PointFromLatLng(LatLngFromDegrees(-50*(1-epsilon), -170)), true},
+		{concaveMin, PointFromLatLng(LatLngFromDegrees(-50*(1+epsilon), -170)), false},
 	}
 	for _, test := range tests {
 		if got := test.c.ContainsPoint(test.p); got != test.want {
@@ -210,6 +211,16 @@ func TestCapInteriorContains(t *testing.T) {
 	if hemi.InteriorContainsPoint(Point{r3.Vector{1, 0, -(1 + epsilon)}}) {
 		t.Errorf("hemi (%v) should not contain point just past half way(%v)", hemi,
 			Point{r3.Vector{1, 0, -(1 + epsilon)}})
+	}
+}
+
+func TestCapCellUnionBoundLevel1Radius(t *testing.T) {
+	// Check that a cap whose radius is approximately the width of a level 1
+	// Cell can be covered by only 3 faces.
+	c := CapFromCenterAngle(PointFromCoords(1, 1, 1), s1.Angle(MinWidthMetric.Value(1)))
+	covering := c.CellUnionBound()
+	if len(covering) != 3 {
+		t.Errorf("a cap with radius of a level 1 cell should be covered by 3 faces, got %d", len(covering))
 	}
 }
 
