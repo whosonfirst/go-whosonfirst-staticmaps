@@ -1,4 +1,4 @@
-package staticmap
+package staticmaps
 
 import (
 	"fmt"

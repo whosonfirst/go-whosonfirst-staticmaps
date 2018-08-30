@@ -6,8 +6,9 @@ prep:
 
 self:   prep rmdeps
 	if test ! -d src; then mkdir src; fi
-	if test ! -d src/github.com/whosonfirst/go-whosonfirst-staticmap; then mkdir -p src/github.com/whosonfirst/go-whosonfirst-staticmap; fi
-	cp staticmap.go src/github.com/whosonfirst/go-whosonfirst-staticmap/
+	if test ! -d src/github.com/whosonfirst/go-whosonfirst-staticmaps; then mkdir -p src/github.com/whosonfirst/go-whosonfirst-staticmaps; fi
+	cp staticmap.go src/github.com/whosonfirst/go-whosonfirst-staticmaps/
+	cp -r provider src/github.com/whosonfirst/go-whosonfirst-staticmaps/
 	cp -r vendor/* src/
 
 rmdeps:
@@ -19,6 +20,7 @@ deps:   rmdeps
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-uri"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-geojson-v2"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-readwrite-bundle"
+	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-rasterzen"
 	# @GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-staticmaps"
 	@GOPATH=$(GOPATH) go get -u "github.com/Wessie/appdirs"
 	@GOPATH=$(GOPATH) go get -u "github.com/flopp/go-coordsparser"
@@ -43,4 +45,5 @@ bin: 	self
 
 fmt:
 	go fmt cmd/*.go
+	go fmt provider/*.go
 	go fmt staticmap.go

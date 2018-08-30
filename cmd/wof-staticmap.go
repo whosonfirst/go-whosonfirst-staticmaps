@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"github.com/whosonfirst/go-whosonfirst-cli/flags"
 	"github.com/whosonfirst/go-whosonfirst-readwrite-bundle"
-	"github.com/whosonfirst/go-whosonfirst-staticmap"
+	"github.com/whosonfirst/go-whosonfirst-staticmaps"
 	"log"
 	"os"
 	"strconv"
@@ -53,7 +53,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sm, err := staticmap.NewStaticMap(r)
+	sm, err := staticmaps.NewStaticMap(r)
 
 	if err != nil {
 		log.Fatal(err)
