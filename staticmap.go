@@ -1,16 +1,17 @@
 package staticmap
 
 import (
-	_ "errors"
 	"fmt"
 	"github.com/golang/geo/s2"
 	"github.com/tidwall/gjson"
 	"github.com/whosonfirst/go-staticmaps"
-	"github.com/whosonfirst/go-whosonfirst-readwrite/reader"	
 	"github.com/whosonfirst/go-whosonfirst-geojson-v2"
 	"github.com/whosonfirst/go-whosonfirst-geojson-v2/feature"
-	"github.com/whosonfirst/go-whosonfirst-uri"	
+	"github.com/whosonfirst/go-whosonfirst-readwrite/reader"
+	"github.com/whosonfirst/go-whosonfirst-uri"
 	"image"
+	"image/png"
+	"io"
 	_ "log"
 	"strings"
 )
@@ -30,21 +31,32 @@ func NewStaticMap(r reader.Reader) (*StaticMap, error) {
 		Width:        800,
 		Height:       640,
 		Fill:         "0xFF00967F",
-	reader: r,
+		reader:       r,
 	}
 
 	return &sm, nil
+}
+
+func (s *StaticMap) RenderAsPNG(wr io.Writer, ids ...int64) error {
+
+	im, err := s.Render(ids...)
+
+	if err != nil {
+		return err
+	}
+
+	return png.Encode(wr, im)
 }
 
 func (s *StaticMap) Render(ids ...int64) (image.Image, error) {
 
 	// this probably deserves to be a utility function
 	// somewhere... (20180830/thisisaaronland)
-	
+
 	features := make([]geojson.Feature, 0)
 
 	for _, id := range ids {
-		
+
 		uri, err := uri.Id2RelPath(id)
 
 		if err != nil {
@@ -65,7 +77,7 @@ func (s *StaticMap) Render(ids ...int64) (image.Image, error) {
 
 		features = append(features, f)
 	}
-	
+
 	ctx := sm.NewContext()
 
 	tileProviders := sm.GetTileProviders()
@@ -108,6 +120,8 @@ func (s *StaticMap) setExtent(ctx *sm.Context, features ...geojson.Feature) erro
 		geom_type := gjson.GetBytes(b, "geometry.type").String()
 		coords := gjson.GetBytes(b, "geometry.coordinates")
 
+		// log.Println(f.Id(), "COORDS", coords.String())
+
 		if geom_type == "Polygon" || geom_type == "MultiPolygon" {
 
 			bbox := gjson.GetBytes(b, "bbox").Array()
@@ -117,21 +131,25 @@ func (s *StaticMap) setExtent(ctx *sm.Context, features ...geojson.Feature) erro
 			f_nelat := bbox[3].Float()
 			f_nelon := bbox[2].Float()
 
-			if f_swlat < swlat {
+			// log.Println(f.Id(), "BBOX", f_swlat, f_swlon, f_nelat, f_nelon)
+
+			if swlat == 0.0 || f_swlat < swlat {
 				swlat = f_swlat
 			}
 
-			if f_swlon < swlon {
+			if swlon == 0.0 || f_swlon < swlon {
 				swlon = f_swlon
 			}
 
-			if f_nelat > nelat {
+			if nelat == 0.0 || f_nelat > nelat {
 				nelat = f_nelat
 			}
 
-			if f_nelon < swlon {
-				swlon = f_nelon
+			if nelon == 0.0 || f_nelon < swlon {
+				nelon = f_nelon
 			}
+
+			// log.Println(f.Id(), swlat, swlon, nelat, nelon)
 
 			if geom_type == "Polygon" {
 
@@ -190,6 +208,8 @@ func (s *StaticMap) setExtent(ctx *sm.Context, features ...geojson.Feature) erro
 
 	}
 
+	// log.Println("FINAL", swlat, swlon, nelat, nelon)
+
 	if swlat == nelat && swlon == nelon {
 
 		ctx.SetCenter(s2.LatLngFromDegrees(swlat, swlon))
@@ -218,9 +238,9 @@ func (s *StaticMap) addMarkers(ctx *sm.Context, features ...geojson.Feature) err
 	for _, f := range features {
 
 		b := f.Bytes()
-		
+
 		geom_type := gjson.GetBytes(b, "geometry.type").String()
-		
+
 		if geom_type == "Point" {
 
 			label_lat := gjson.GetBytes(b, "properties.lbl:latitude")

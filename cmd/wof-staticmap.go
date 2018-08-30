@@ -4,9 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/whosonfirst/go-whosonfirst-cli/flags"
-	"github.com/whosonfirst/go-whosonfirst-readwrite-bundle"	
+	"github.com/whosonfirst/go-whosonfirst-readwrite-bundle"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
-	"image/png"
 	"log"
 	"os"
 	"strconv"
@@ -32,7 +31,7 @@ func main() {
 	flag.Parse()
 
 	wof_ids := make([]int64, 0)
-	
+
 	for _, str_id := range flag.Args() {
 
 		id, err := strconv.ParseInt(str_id, 10, 64)
@@ -53,7 +52,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	
+
 	sm, err := staticmap.NewStaticMap(r)
 
 	if err != nil {
@@ -63,16 +62,10 @@ func main() {
 	sm.Width = *width
 	sm.Height = *height
 
-	im, err := sm.Render(wof_ids...)
-
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	if *saveas == "" {
 		*saveas = fmt.Sprintf("%s.png", "debug") // FIX ME
 	}
-	
+
 	fh, err := os.Create(*saveas)
 
 	if err != nil {
@@ -81,7 +74,7 @@ func main() {
 
 	defer fh.Close()
 
-	err = png.Encode(fh, im)
+	err = sm.RenderAsPNG(fh, wof_ids...)
 
 	if err != nil {
 		log.Fatal(err)
