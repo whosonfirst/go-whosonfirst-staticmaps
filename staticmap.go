@@ -3,7 +3,7 @@ package staticmap
 import (
 	_ "errors"
 	"fmt"
-	"github.com/flopp/go-staticmaps"
+	"github.com/whosonfirst/go-staticmaps"
 	"github.com/golang/geo/s2"
 	"github.com/tidwall/gjson"
 	"github.com/whosonfirst/go-whosonfirst-uri"

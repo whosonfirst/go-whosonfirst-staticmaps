@@ -16,8 +16,10 @@ rmdeps:
 build:	fmt bin
 
 deps:   rmdeps
-	@GOPATH=$(GOPATH) go get -u "github.com/flopp/go-staticmaps"
+	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-cli"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-uri"
+	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-readwrite-bundle"
+	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-staticmaps"
 	@GOPATH=$(GOPATH) go get -u "github.com/tidwall/gjson"
 
 vendor-deps: deps
