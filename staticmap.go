@@ -3,48 +3,69 @@ package staticmap
 import (
 	_ "errors"
 	"fmt"
-	"github.com/whosonfirst/go-staticmaps"
 	"github.com/golang/geo/s2"
 	"github.com/tidwall/gjson"
-	"github.com/whosonfirst/go-whosonfirst-uri"
+	"github.com/whosonfirst/go-staticmaps"
+	"github.com/whosonfirst/go-whosonfirst-readwrite/reader"	
+	"github.com/whosonfirst/go-whosonfirst-geojson-v2"
+	"github.com/whosonfirst/go-whosonfirst-geojson-v2/feature"
+	"github.com/whosonfirst/go-whosonfirst-uri"	
 	"image"
-	"io/ioutil"
 	_ "log"
-	"net/http"
 	"strings"
 )
 
 type StaticMap struct {
-	DataRoot     string
 	TileProvider string
 	Fill         string
 	Width        int
 	Height       int
-	wofid        int64
+	reader       reader.Reader
 }
 
-func NewStaticMap(wofid int64) (*StaticMap, error) {
+func NewStaticMap(r reader.Reader) (*StaticMap, error) {
 
 	sm := StaticMap{
-		DataRoot:     "https://whosonfirst.mapzen.com/data",
 		TileProvider: "stamen-toner",
 		Width:        800,
 		Height:       640,
 		Fill:         "0xFF00967F",
-		wofid:        wofid,
+	reader: r,
 	}
 
 	return &sm, nil
 }
 
-func (s *StaticMap) Render() (image.Image, error) {
+func (s *StaticMap) Render(ids ...int64) (image.Image, error) {
 
-	b, err := s.Fetch()
+	// this probably deserves to be a utility function
+	// somewhere... (20180830/thisisaaronland)
+	
+	features := make([]geojson.Feature, 0)
 
-	if err != nil {
-		return nil, err
+	for _, id := range ids {
+		
+		uri, err := uri.Id2RelPath(id)
+
+		if err != nil {
+			return nil, err
+		}
+
+		fh, err := s.reader.Read(uri)
+
+		if err != nil {
+			return nil, err
+		}
+
+		f, err := feature.LoadFeatureFromReader(fh)
+
+		if err != nil {
+			return nil, err
+		}
+
+		features = append(features, f)
 	}
-
+	
 	ctx := sm.NewContext()
 
 	tileProviders := sm.GetTileProviders()
@@ -56,139 +77,192 @@ func (s *StaticMap) Render() (image.Image, error) {
 
 	ctx.SetSize(s.Width, s.Height)
 
-	geom_type := gjson.GetBytes(b, "geometry.type").String()
-	coords := gjson.GetBytes(b, "geometry.coordinates")
+	err := s.setExtent(ctx, features...)
 
-	if geom_type == "Polygon" || geom_type == "MultiPolygon" {
-
-		bbox := gjson.GetBytes(b, "bbox").Array()
-
-		swlat := bbox[1].Float()
-		swlon := bbox[0].Float()
-		nelat := bbox[3].Float()
-		nelon := bbox[2].Float()
-
-		s2_bbox, err := sm.CreateBBox(nelat, swlon, swlat, nelon)
-
-		if err != nil {
-			return nil, err
-		}
-
-		ctx.SetBoundingBox(*s2_bbox)
-
-		areas := make([]*sm.Area, 0)
-
-		if geom_type == "Polygon" {
-
-			for _, poly := range coords.Array() {
-
-				area, err := s.poly2area(poly)
-
-				if err != nil {
-					return nil, err
-				}
-
-				areas = append(areas, area)
-			}
-		} else {
-
-			for _, multi := range coords.Array() {
-
-				for _, poly := range multi.Array() {
-
-					area, err := s.poly2area(poly)
-
-					if err != nil {
-						return nil, err
-					}
-
-					areas = append(areas, area)
-				}
-
-			}
-		}
-
-		for _, a := range areas {
-			ctx.AddArea(a)
-		}
-
-	} else {
-
-		latlon := coords.Array()
-
-		lat := latlon[1].Float()
-		lon := latlon[0].Float()
-
-		ctx.SetCenter(s2.LatLngFromDegrees(lat, lon))
+	if err != nil {
+		return nil, err
 	}
 
-	if geom_type == "Point" {
+	err = s.addMarkers(ctx, features...)
 
-		label_lat := gjson.GetBytes(b, "properties.lbl:latitude")
-		label_lon := gjson.GetBytes(b, "properties.lbl:longitude")
-
-		if label_lat.Exists() && label_lon.Exists() {
-
-			label_marker := fmt.Sprintf("color:%s|%0.6f,%0.6f", s.Fill, label_lat.Float(), label_lon.Float())
-
-			markers, err := sm.ParseMarkerString(label_marker)
-
-			if err != nil {
-				return nil, err
-			}
-
-			for _, marker := range markers {
-				ctx.AddMarker(marker)
-			}
-
-		} else {
-
-			geom_lat := gjson.GetBytes(b, "properties.geom:latitude").Float()
-			geom_lon := gjson.GetBytes(b, "properties.geom:longitude").Float()
-
-			geom_marker := fmt.Sprintf("color:%s|%0.6f,%0.6f", s.Fill, geom_lat, geom_lon)
-
-			markers, err := sm.ParseMarkerString(geom_marker)
-
-			if err != nil {
-				return nil, err
-			}
-
-			for _, marker := range markers {
-				ctx.AddMarker(marker)
-			}
-
-		}
+	if err != nil {
+		return nil, err
 	}
 
 	return ctx.Render()
 }
 
-// please put me in a utility function or something... (20170203/thisisaaronland)
+func (s *StaticMap) setExtent(ctx *sm.Context, features ...geojson.Feature) error {
 
-func (s *StaticMap) Fetch() ([]byte, error) {
+	swlat := 0.0
+	swlon := 0.0
+	nelat := 0.0
+	nelon := 0.0
 
-	url, err := uri.Id2AbsPath(s.DataRoot, s.wofid)
+	areas := make([]*sm.Area, 0)
 
-	if err != nil {
-		return nil, err
+	for _, f := range features {
+
+		b := f.Bytes()
+
+		geom_type := gjson.GetBytes(b, "geometry.type").String()
+		coords := gjson.GetBytes(b, "geometry.coordinates")
+
+		if geom_type == "Polygon" || geom_type == "MultiPolygon" {
+
+			bbox := gjson.GetBytes(b, "bbox").Array()
+
+			f_swlat := bbox[1].Float()
+			f_swlon := bbox[0].Float()
+			f_nelat := bbox[3].Float()
+			f_nelon := bbox[2].Float()
+
+			if f_swlat < swlat {
+				swlat = f_swlat
+			}
+
+			if f_swlon < swlon {
+				swlon = f_swlon
+			}
+
+			if f_nelat > nelat {
+				nelat = f_nelat
+			}
+
+			if f_nelon < swlon {
+				swlon = f_nelon
+			}
+
+			if geom_type == "Polygon" {
+
+				for _, poly := range coords.Array() {
+
+					area, err := s.poly2area(poly)
+
+					if err != nil {
+						return err
+					}
+
+					areas = append(areas, area)
+				}
+			} else {
+
+				for _, multi := range coords.Array() {
+
+					for _, poly := range multi.Array() {
+
+						area, err := s.poly2area(poly)
+
+						if err != nil {
+							return err
+						}
+
+						areas = append(areas, area)
+					}
+
+				}
+			}
+
+		} else {
+
+			latlon := coords.Array()
+
+			lat := latlon[1].Float()
+			lon := latlon[0].Float()
+
+			if lat < swlat {
+				swlat = lat
+			}
+
+			if lon < swlon {
+				swlon = lon
+			}
+
+			if lat > nelat {
+				nelat = lat
+			}
+
+			if lon > nelon {
+				nelon = lon
+			}
+
+		}
+
 	}
 
-	rsp, err := http.Get(url)
+	if swlat == nelat && swlon == nelon {
 
-	if err != nil {
-		return nil, err
+		ctx.SetCenter(s2.LatLngFromDegrees(swlat, swlon))
+
+	} else {
+
+		s2_bbox, err := sm.CreateBBox(nelat, swlon, swlat, nelon)
+
+		if err != nil {
+			return err
+		}
+
+		ctx.SetBoundingBox(*s2_bbox)
+
+		for _, a := range areas {
+			ctx.AddArea(a)
+		}
+
 	}
 
-	defer rsp.Body.Close()
+	return nil
+}
 
-	b, err := ioutil.ReadAll(rsp.Body)
+func (s *StaticMap) addMarkers(ctx *sm.Context, features ...geojson.Feature) error {
 
-	if err != nil {
-		return nil, err
+	for _, f := range features {
+
+		b := f.Bytes()
+		
+		geom_type := gjson.GetBytes(b, "geometry.type").String()
+		
+		if geom_type == "Point" {
+
+			label_lat := gjson.GetBytes(b, "properties.lbl:latitude")
+			label_lon := gjson.GetBytes(b, "properties.lbl:longitude")
+
+			if label_lat.Exists() && label_lon.Exists() {
+
+				label_marker := fmt.Sprintf("color:%s|%0.6f,%0.6f", s.Fill, label_lat.Float(), label_lon.Float())
+
+				markers, err := sm.ParseMarkerString(label_marker)
+
+				if err != nil {
+					return err
+				}
+
+				for _, marker := range markers {
+					ctx.AddMarker(marker)
+				}
+
+			} else {
+
+				geom_lat := gjson.GetBytes(b, "properties.geom:latitude").Float()
+				geom_lon := gjson.GetBytes(b, "properties.geom:longitude").Float()
+
+				geom_marker := fmt.Sprintf("color:%s|%0.6f,%0.6f", s.Fill, geom_lat, geom_lon)
+
+				markers, err := sm.ParseMarkerString(geom_marker)
+
+				if err != nil {
+					return err
+				}
+
+				for _, marker := range markers {
+					ctx.AddMarker(marker)
+				}
+
+			}
+		}
+
 	}
 
-	return b, nil
+	return nil
 }
 
 func (s *StaticMap) poly2area(poly gjson.Result) (*sm.Area, error) {
