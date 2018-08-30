@@ -83,7 +83,7 @@ func main() {
 	sm.Width = *width
 	sm.Height = *height
 
-	fh, err := os.OpenFile(*saveas,  os.O_RDWR|os.O_CREATE, 0644)
+	fh, err := os.OpenFile(*saveas, os.O_RDWR|os.O_CREATE, 0644)
 
 	if err != nil {
 		log.Fatal(err)

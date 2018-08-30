@@ -22,7 +22,7 @@ func NewRasterzenTileProvider(apikey string) (sm.TileProvider, error) {
 
 	t := &RasterzenTileProvider{
 		name:        "rasterzen",
-		attribution: "OSM, Nextzen",
+		attribution: "(c) OpenStreetMap contributors; Nextzen; Who's On First",
 		tileSize:    512,
 		urlPattern:  "",
 		shards:      []string{},

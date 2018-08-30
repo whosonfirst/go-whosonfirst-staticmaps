@@ -76,7 +76,7 @@ For example:
 
 Will read data from both a local and remote (GitHub) data source and generate a map of [San Bruno](https://spelunker.whosonfirst.org/id/85922441/) (WOF ID `85922441`) and the [International Terminal Building](https://millsfield.sfomuseum.org/id/115/915/733/3) at SFO (WOF ID `1159157333`) using [rasterized Nextzen tiles](https://github.com/whosonfirst/go-rasterzen) for the basemap. Like this:
 
-![](images/20180830-itb-sanbruno.png)
+![](images/20180830-itb-sanbruno-2.png)
 
 ### wof-staticmapd
 
