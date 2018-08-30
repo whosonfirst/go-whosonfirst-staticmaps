@@ -1,4 +1,4 @@
-# go-whosonfirst-staticmap
+# go-whosonfirst-staticmaps
 
 Go package for rendering static maps of Who's On First places.
 
