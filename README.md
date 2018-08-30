@@ -68,10 +68,13 @@ Usage of ./bin/wof-staticmap:
 For example:
 
 ```
-./bin/wof-staticmap -provider rasterzen -nextzen-api-key {APIKEY} -source 'reader=fs root=/usr/local/data/sfomuseum-data-architecture/data' -source 'reader=github repo=whosonfirst-data branch=master' 85922441 1159157333 
+./bin/wof-staticmap -height 1024 -width 2048 -provider rasterzen -nextzen-api-key {APIKEY} \
+ -source 'reader=fs root=/usr/local/data/sfomuseum-data-architecture/data' \
+ -source 'reader=github repo=whosonfirst-data branch=master' \
+ 85922441 1159157333 
 ```
 
-Will read data from both a local and remote (GitHub) data source and generate a map of [San Bruno](https://spelunker.whosonfirst.org/id/85922441/) and the [International Terminal Building](https://millsfield.sfomuseum.org/id/115/915/733/3) at SFO using [rasterized Nextzen tiles](https://github.com/whosonfirst/go-rasterzen) for the basemap. Like this:
+Will read data from both a local and remote (GitHub) data source and generate a map of [San Bruno](https://spelunker.whosonfirst.org/id/85922441/) (WOF ID `85922441`) and the [International Terminal Building](https://millsfield.sfomuseum.org/id/115/915/733/3) at SFO (WOF ID `1159157333`) using [rasterized Nextzen tiles](https://github.com/whosonfirst/go-rasterzen) for the basemap. Like this:
 
 ![](images/20180830-itb-sanbruno.png)
 
@@ -143,6 +146,10 @@ curl http://whosonfirst.mapzen.com.s3.amazonaws.com/static/859/222/27/85922227-e
 ![](images/85922227-example.png)
 
 ## Caveats
+
+### Rendering multiple WOF IDs
+
+Sometimes when rendering multiple IDs the geometries get completely borked. I don't know why yet...
 
 ### Interior rings
 
