@@ -32,7 +32,7 @@ func main() {
 
 	pr, _ := provider.NewTileProviderFromString("stamen-toner")
 	
-	sm, _ := staticmap.NewStaticMap(p)
+	sm, _ := staticmap.NewStaticMap(pr)
 	im, _ := sm.Render(wofid)
 
 	fh, _ := os.Create(png)
