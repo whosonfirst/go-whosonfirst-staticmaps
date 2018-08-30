@@ -20,6 +20,7 @@ _Note that all error handling has been removed for the sake of brevity._
 import (
 	"fmt"
 	"github.com/whosonfirst/go-whosonfirst-staticmap"
+	"github.com/whosonfirst/go-whosonfirst-staticmap/provider"	
 	"image/png"		
 	"log"
 )
@@ -28,9 +29,11 @@ func main() {
 
 	wofid := 85688637
 	png := fmt.Sprintf("%d.png", wofid)
+
+	pr, _ := provider.NewTileProviderFromString("stamen-toner")
 	
-	sm, _ := staticmap.NewStaticMap(wofid)
-	im, _ := sm.Render()
+	sm, _ := staticmap.NewStaticMap(p)
+	im, _ := sm.Render(wofid)
 
 	fh, _ := os.Create(png)
 	defer fh.Close()
@@ -48,21 +51,35 @@ Render a static map for a Who's On First ID from the command line.
 ```
 ./bin/wof-staticmap -h
 Usage of ./bin/wof-staticmap:
-  -data-root string
-    	Where to look for Who's On First source data. (default "https://whosonfirst.mapzen.com/data")
+  -source value
+    	One or more valid Who's On First reader DSN strings. DSN strings MUST contain a 'reader=SOURCE' pair followed by any additional pairs required by that reader. Supported reader sources are: fs, github, http, mysql, s3, sqlite.
   -height int
     	The height in pixels of your new map. (default 480)
-  -id int
-    	A valid Who's On First to render.
+  -nextzen-api-key string
+    	A valid Nextzen API key. Required if -provider is 'rasterzen'
+  -provider string
+    	A valid go-staticmaps provider. Valid providers are: carto-dark,carto-light,cycle,opentopomap,osm,rasterzen,stamen-terrain,stamen-toner,thunderforest-landscape,thunderforest-outdoors,thunderforest-transport (default "stamen-toner")
   -save-as string
     	Save the map to this path. If empty then the map will saved as {WOFID}.png.
   -width int
     	The width in pixels of your new map. (default 640)
 ```
 
+For example:
+
+```
+./bin/wof-staticmap -provider rasterzen -nextzen-api-key {APIKEY} -source 'reader=fs root=/usr/local/data/sfomuseum-data-architecture/data' -source 'reader=github repo=whosonfirst-data branch=master' 85922441 1159157333 
+```
+
+Will read data from both a local and remote (GitHub) data source and generate a map of [San Bruno](https://spelunker.whosonfirst.org/id/85922441/) and the [International Terminal Building](https://millsfield.sfomuseum.org/id/115/915/733/3) at SFO using [rasterized Nextzen tiles](https://github.com/whosonfirst/go-rasterzen) for the basemap. Like this:
+
+![](images/20180830-itb-sanbruno.png)
+
 ### wof-staticmapd
 
 Render a static map for a Who's On First ID from an HTTP pony, optionally caching the result in S3.
+
+_THIS TOOL DOES NOT WORK RIGHT NOW. IT WILL. BUT NOT TODAY..._
 
 ```
 ./bin/wof-staticmapd -h
@@ -133,4 +150,4 @@ This package does not do the right thing when rendering interior rings. Not even
 
 ## See also
 
-* https://github.com/flopp/go-staticmaps
+* https://github.com/whosonfirst/go-staticmaps

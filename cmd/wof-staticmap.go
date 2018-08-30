@@ -6,16 +6,23 @@ import (
 	"github.com/whosonfirst/go-whosonfirst-cli/flags"
 	"github.com/whosonfirst/go-whosonfirst-readwrite-bundle"
 	"github.com/whosonfirst/go-whosonfirst-staticmaps"
+	"github.com/whosonfirst/go-whosonfirst-staticmaps/provider"
 	"log"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
 
+	valid_providers := provider.ValidProviders()
+	str_providers := strings.Join(valid_providers, ",")
+
+	desc_providers := fmt.Sprintf("A valid go-staticmaps provider. Valid providers are: %s", str_providers)
+
 	str_valid := bundle.ValidReadersString()
 
-	desc := fmt.Sprintf("DSN strings MUST contain a 'reader=SOURCE' pair followed by any additional pairs required by that reader. Supported reader sources are: %s.", str_valid)
+	desc := fmt.Sprintf("One or more valid Who's On First reader DSN strings. DSN strings MUST contain a 'reader=SOURCE' pair followed by any additional pairs required by that reader. Supported reader sources are: %s.", str_valid)
 
 	var dsn_flags flags.MultiDSNString
 	flag.Var(&dsn_flags, "dsn", desc)
@@ -23,6 +30,14 @@ func main() {
 	var height = flag.Int("height", 480, "The height in pixels of your new map.")
 	var width = flag.Int("width", 640, "The width in pixels of your new map.")
 	var saveas = flag.String("save-as", "", "Save the map to this path. If empty then the map will saved as {WOFID}.png.")
+
+	var api_key = flag.String("nextzen-api-key", "", "A valid Nextzen API key. Required if -provider is 'rasterzen'")
+
+	var tile_provider = flag.String("provider", "stamen-toner", desc_providers)
+
+	if *tile_provider == "rasterzen" && *api_key == "" {
+		log.Fatal("Missing Nextzen API key for rasterzen provider")
+	}
 
 	// deprecated
 	// var wofid = flag.Int64("id", 0, "A valid Who's On First to render.")
@@ -53,7 +68,13 @@ func main() {
 		log.Fatal(err)
 	}
 
-	sm, err := staticmaps.NewStaticMap(r)
+	tp, err := provider.NewTileProviderFromFlags()
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	sm, err := staticmaps.NewStaticMap(tp, r)
 
 	if err != nil {
 		log.Fatal(err)

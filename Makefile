@@ -16,18 +16,20 @@ rmdeps:
 
 build:	fmt bin
 
+# leaving this for in case it's necessary again (it shouldn't be...)
+# @GOPATH=$(GOPATH) go get -u "github.com/Wessie/appdirs"
+# @GOPATH=$(GOPATH) go get -u "github.com/flopp/go-coordsparser"
+# @GOPATH=$(GOPATH) go get -u "github.com/fogleman/gg"
+# @GOPATH=$(GOPATH) go get -u "github.com/golang/geo/..."
+# @GOPATH=$(GOPATH) go get -u "github.com/tkrajina/gpxgo/gpx"
+# cp -r /usr/local/whosonfirst/go-staticmaps src/github.com/whosonfirst/
+
 deps:   rmdeps
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-uri"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-geojson-v2"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-whosonfirst-readwrite-bundle"
 	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-rasterzen"
-	# @GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-staticmaps"
-	@GOPATH=$(GOPATH) go get -u "github.com/Wessie/appdirs"
-	@GOPATH=$(GOPATH) go get -u "github.com/flopp/go-coordsparser"
-	@GOPATH=$(GOPATH) go get -u "github.com/fogleman/gg"
-	@GOPATH=$(GOPATH) go get -u "github.com/golang/geo/..."
-	@GOPATH=$(GOPATH) go get -u "github.com/tkrajina/gpxgo/gpx"
-	cp -r /usr/local/whosonfirst/go-staticmaps src/github.com/whosonfirst/
+	@GOPATH=$(GOPATH) go get -u "github.com/whosonfirst/go-staticmaps"
 	@GOPATH=$(GOPATH) go get -u "github.com/tidwall/gjson"
 	mv src/github.com/whosonfirst/go-whosonfirst-readwrite-bundle/vendor/github.com/whosonfirst/go-whosonfirst-cli src/github.com/whosonfirst/
 	mv src/github.com/whosonfirst/go-whosonfirst-readwrite-bundle/vendor/github.com/whosonfirst/go-whosonfirst-readwrite src/github.com/whosonfirst/

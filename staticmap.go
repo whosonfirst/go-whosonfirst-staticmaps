@@ -17,17 +17,17 @@ import (
 )
 
 type StaticMap struct {
-	TileProvider string
+	TileProvider sm.TileProvider
 	Fill         string
 	Width        int
 	Height       int
 	reader       reader.Reader
 }
 
-func NewStaticMap(r reader.Reader) (*StaticMap, error) {
+func NewStaticMap(tp sm.TileProvider, r reader.Reader) (*StaticMap, error) {
 
 	sm := StaticMap{
-		TileProvider: "stamen-toner",
+		TileProvider: tp,
 		Width:        800,
 		Height:       640,
 		Fill:         "0xFF00967F",
@@ -80,12 +80,7 @@ func (s *StaticMap) Render(ids ...int64) (image.Image, error) {
 
 	ctx := sm.NewContext()
 
-	tileProviders := sm.GetTileProviders()
-	tp := tileProviders[s.TileProvider]
-
-	if tp != nil {
-		ctx.SetTileProvider(tp)
-	}
+	ctx.SetTileProvider(s.TileProvider)
 
 	ctx.SetSize(s.Width, s.Height)
 

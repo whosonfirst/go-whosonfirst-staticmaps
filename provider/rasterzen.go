@@ -2,6 +2,7 @@ package provider
 
 import (
 	"bytes"
+	"fmt"
 	"github.com/whosonfirst/go-rasterzen/nextzen"
 	"github.com/whosonfirst/go-rasterzen/tile"
 	"github.com/whosonfirst/go-staticmaps"
@@ -9,7 +10,7 @@ import (
 
 type RasterzenTileProvider struct {
 	sm.TileProvider
-	api_key     string
+	apikey      string
 	name        string
 	attribution string
 	tileSize    int
@@ -19,15 +20,16 @@ type RasterzenTileProvider struct {
 
 func NewRasterzenTileProvider(apikey string) (sm.TileProvider, error) {
 
-	t := &DefaultTileProvider{
+	t := &RasterzenTileProvider{
 		name:        "rasterzen",
 		attribution: "OSM, Nextzen",
-		tileSize:    256,
+		tileSize:    512,
 		urlPattern:  "",
 		shards:      []string{},
+		apikey:      apikey,
 	}
 
-	return t
+	return t, nil
 }
 
 func (t *RasterzenTileProvider) Name() string {
@@ -52,12 +54,12 @@ func (t *RasterzenTileProvider) Shards() []string {
 
 func (t *RasterzenTileProvider) TileURL(zoom int, x int, y int) string {
 
-	return fmt.Sprintf(t.URLPattern(), shard, zoom, x, y)
+	return fmt.Sprintf(t.URLPattern(), zoom, x, y)
 }
 
 func (t *RasterzenTileProvider) FetchTile(z int, x int, y int) ([]byte, error) {
 
-	raw, err := nextzen.FetchTile(z, x, y, t.api_key)
+	raw, err := nextzen.FetchTile(z, x, y, t.apikey)
 
 	if err != nil {
 		return nil, err
@@ -70,7 +72,7 @@ func (t *RasterzenTileProvider) FetchTile(z int, x int, y int) ([]byte, error) {
 	}
 
 	wr := new(bytes.Buffer)
-	im, err := tile.ToPNG(cropped, wr)
+	err = tile.ToPNG(cropped, wr)
 
 	if err != nil {
 		return nil, err
